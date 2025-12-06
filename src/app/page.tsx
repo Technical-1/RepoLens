@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSession, signIn } from 'next-auth/react'
-import { Github, Lock } from 'lucide-react'
+import { Github, Lock, ArrowLeft, Search } from 'lucide-react'
 import Header from '@/components/Header'
 import RepoInput from '@/components/RepoInput'
 import PrivacyNotice from '@/components/PrivacyNotice'
@@ -15,17 +15,19 @@ import UserReposList from '@/components/UserReposList'
 import type { FullRepoAnalysis } from '@/types'
 
 export default function Home() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const [repoData, setRepoData] = useState<FullRepoAnalysis | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [requiresAuth, setRequiresAuth] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
 
   const analyzeRepo = async (url: string) => {
     setLoading(true)
     setError(null)
     setRequiresAuth(false)
     setRepoData(null)
+    setShowSearch(false)
 
     try {
       const res = await fetch('/api/repo', {
@@ -50,6 +52,126 @@ export default function Home() {
     }
   }
 
+  const goBackToRepos = () => {
+    setRepoData(null)
+    setError(null)
+    setShowSearch(false)
+  }
+
+  const isAuthenticated = status === 'authenticated' && session
+
+  // Authenticated user viewing repo stats
+  if (isAuthenticated && repoData) {
+    return (
+      <main className="min-h-screen animated-gradient">
+        <Header />
+        
+        <div className="pt-20 px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="max-w-7xl mx-auto">
+            {/* Back Navigation */}
+            <button
+              onClick={goBackToRepos}
+              className="mb-6 flex items-center gap-2 text-github-link hover:text-white transition-colors group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              Back to My Repositories
+            </button>
+
+            {/* Stats Content */}
+            <div className="space-y-8">
+              <StatsOverview data={repoData} />
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <LanguageBreakdown data={repoData} />
+                <CodeFrequencyChart data={repoData} />
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <CommitHistory data={repoData} />
+                <ContributorsList data={repoData} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Footer />
+      </main>
+    )
+  }
+
+  // Authenticated user dashboard (no repo selected)
+  if (isAuthenticated && !repoData) {
+    return (
+      <main className="min-h-screen animated-gradient">
+        <Header />
+        
+        <div className="pt-20 px-4 sm:px-6 lg:px-8 pb-16">
+          <div className="max-w-5xl mx-auto">
+            {/* Dashboard Header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Welcome back, {session.user?.name?.split(' ')[0] || 'there'}!
+              </h1>
+              <p className="text-github-muted">
+                Select a repository to analyze or search for any public repo.
+              </p>
+            </div>
+
+            {/* Search Toggle */}
+            {!showSearch ? (
+              <button
+                onClick={() => setShowSearch(true)}
+                className="mb-6 flex items-center gap-2 px-4 py-2.5 bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-muted hover:text-github-text transition-colors"
+              >
+                <Search className="w-4 h-4" />
+                Search any repository...
+              </button>
+            ) : (
+              <div className="mb-8">
+                <div className="flex items-center gap-4 mb-4">
+                  <button
+                    onClick={() => setShowSearch(false)}
+                    className="flex items-center gap-2 text-github-link hover:text-white transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                  </button>
+                  <span className="text-github-muted">Search any repository</span>
+                </div>
+                <RepoInput onAnalyze={analyzeRepo} isLoading={loading} error={error} />
+              </div>
+            )}
+
+            {/* Error Display */}
+            {error && !showSearch && (
+              <div className="mb-6 p-4 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+                {error}
+              </div>
+            )}
+
+            {/* Loading State */}
+            {loading && (
+              <div className="mb-6 p-8 glass-card rounded-xl border border-github-border/50 flex items-center justify-center">
+                <div className="flex items-center gap-3 text-github-muted">
+                  <div className="w-5 h-5 border-2 border-github-accent border-t-transparent rounded-full animate-spin" />
+                  <span>Analyzing repository...</span>
+                </div>
+              </div>
+            )}
+
+            {/* User Repos */}
+            {!showSearch && !loading && (
+              <UserReposList onSelectRepo={analyzeRepo} />
+            )}
+          </div>
+        </div>
+
+        <Footer />
+      </main>
+    )
+  }
+
+  // Public landing page (not authenticated)
   return (
     <main className="min-h-screen animated-gradient">
       <Header />
@@ -119,15 +241,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* User Repos Section (when logged in and no repo selected) */}
-      {session && !repoData && !loading && (
-        <div className="px-4 sm:px-6 lg:px-8 pb-16">
-          <div className="max-w-4xl mx-auto">
-            <UserReposList onSelectRepo={analyzeRepo} />
-          </div>
-        </div>
-      )}
-
       {/* Privacy Notice (when not logged in and no repo selected) */}
       {!session && !repoData && !loading && (
         <div className="px-4 sm:px-6 lg:px-8 pb-16">
@@ -137,32 +250,37 @@ export default function Home() {
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="border-t border-github-border/50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-github-muted">
-            <p>Built with Next.js 15, React 19, and the GitHub API</p>
-            <div className="flex items-center gap-6">
-              <a
-                href="https://docs.github.com/en/rest"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-github-text transition-colors"
-              >
-                GitHub API Docs
-              </a>
-              <a
-                href="https://github.com/settings/applications"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-github-text transition-colors"
-              >
-                Manage OAuth Apps
-              </a>
-            </div>
+      <Footer />
+    </main>
+  )
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-github-border/50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-github-muted">
+          <p>Built with Next.js 15, React 19, and the GitHub API</p>
+          <div className="flex items-center gap-6">
+            <a
+              href="https://docs.github.com/en/rest"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-github-text transition-colors"
+            >
+              GitHub API Docs
+            </a>
+            <a
+              href="https://github.com/settings/applications"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-github-text transition-colors"
+            >
+              Manage OAuth Apps
+            </a>
           </div>
         </div>
-      </footer>
-    </main>
+      </div>
+    </footer>
   )
 }

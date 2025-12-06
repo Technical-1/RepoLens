@@ -28,6 +28,9 @@ export default function ContributorsList({ data }: ContributorsListProps) {
 
   // Calculate total additions/deletions per contributor
   const getContributorStats = (contributor: typeof sortedContributors[0]) => {
+    if (!contributor.weeks || contributor.weeks.length === 0) {
+      return { additions: 0, deletions: 0, hasWeeklyData: false }
+    }
     const totals = contributor.weeks.reduce(
       (acc, week) => ({
         additions: acc.additions + week.additions,
@@ -35,7 +38,7 @@ export default function ContributorsList({ data }: ContributorsListProps) {
       }),
       { additions: 0, deletions: 0 }
     )
-    return totals
+    return { ...totals, hasWeeklyData: true }
   }
 
   return (
@@ -85,7 +88,7 @@ export default function ContributorsList({ data }: ContributorsListProps) {
 
                 {/* Info */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-2">
                     <a
                       href={`https://github.com/${contributor.author}`}
                       target="_blank"
@@ -99,14 +102,18 @@ export default function ContributorsList({ data }: ContributorsListProps) {
                         <GitCommit className="w-4 h-4" />
                         {formatNumber(contributor.total)}
                       </span>
-                      <span className="flex items-center gap-1 text-green-400">
-                        <Plus className="w-3.5 h-3.5" />
-                        {formatNumber(stats.additions)}
-                      </span>
-                      <span className="flex items-center gap-1 text-red-400">
-                        <Minus className="w-3.5 h-3.5" />
-                        {formatNumber(stats.deletions)}
-                      </span>
+                      {stats.hasWeeklyData && (
+                        <>
+                          <span className="flex items-center gap-1 text-green-400">
+                            <Plus className="w-3.5 h-3.5" />
+                            {formatNumber(stats.additions)}
+                          </span>
+                          <span className="flex items-center gap-1 text-red-400">
+                            <Minus className="w-3.5 h-3.5" />
+                            {formatNumber(stats.deletions)}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
 

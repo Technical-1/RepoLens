@@ -1,0 +1,23 @@
+{
+  "name": "RepoLens - GitHub Repository Stats",
+  "short_name": "RepoLens",
+  "description": "Analyze any GitHub repository with detailed insights into lines of code, language breakdown, commit history, and contributor statistics.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d1117",
+  "theme_color": "#238636",
+  "icons": [
+    {
+      "src": "/icon",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ],
+  "categories": ["developer tools", "productivity", "utilities"]
+}
+
