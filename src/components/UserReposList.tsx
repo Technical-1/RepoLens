@@ -1,37 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Star, Lock, Globe, Search, Loader2, GitFork } from 'lucide-react'
+import { useState } from 'react'
+import { Star, Lock, Globe, Search, Loader2, GitFork, RefreshCw } from 'lucide-react'
 import type { UserRepo } from '@/types'
 import { LANGUAGE_COLORS } from '@/types'
 
 interface UserReposListProps {
+  repos: UserRepo[]
+  loading: boolean
+  error: string | null
   onSelectRepo: (url: string) => void
+  onRefresh: () => void
 }
 
-export default function UserReposList({ onSelectRepo }: UserReposListProps) {
-  const [repos, setRepos] = useState<UserRepo[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+export default function UserReposList({
+  repos,
+  loading,
+  error,
+  onSelectRepo,
+  onRefresh,
+}: UserReposListProps) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
-
-  useEffect(() => {
-    const fetchRepos = async () => {
-      try {
-        const res = await fetch('/api/user/repos')
-        if (!res.ok) throw new Error('Failed to fetch repos')
-        const data = await res.json()
-        setRepos(data.repos)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load repositories')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchRepos()
-  }, [])
 
   const filteredRepos = repos.filter((repo) => {
     const matchesSearch =
@@ -58,7 +48,7 @@ export default function UserReposList({ onSelectRepo }: UserReposListProps) {
     return `Updated ${Math.floor(diffInDays / 30)} months ago`
   }
 
-  if (loading) {
+  if (loading && repos.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 border border-github-border/50">
         <div className="flex flex-col items-center justify-center gap-4">
@@ -69,10 +59,19 @@ export default function UserReposList({ onSelectRepo }: UserReposListProps) {
     )
   }
 
-  if (error) {
+  if (error && repos.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 border border-red-500/30 bg-red-500/5">
-        <p className="text-red-400 text-center">{error}</p>
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={onRefresh}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-text transition-colors"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Try Again
+          </button>
+        </div>
       </div>
     )
   }
@@ -80,7 +79,18 @@ export default function UserReposList({ onSelectRepo }: UserReposListProps) {
   return (
     <div className="glass-card rounded-xl border border-github-border/50 overflow-hidden">
       <div className="p-6 border-b border-github-border/50">
-        <h3 className="text-xl font-semibold text-white mb-4">Your Repositories</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-semibold text-white">Your Repositories</h3>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-muted hover:text-github-text transition-colors disabled:opacity-50"
+            title="Refresh repository list"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+        </div>
 
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row gap-4">
@@ -116,7 +126,9 @@ export default function UserReposList({ onSelectRepo }: UserReposListProps) {
       <div className="max-h-96 overflow-y-auto">
         {filteredRepos.length === 0 ? (
           <div className="p-8 text-center text-github-muted">
-            No repositories found matching your criteria.
+            {repos.length === 0
+              ? 'No repositories found.'
+              : 'No repositories found matching your criteria.'}
           </div>
         ) : (
           <div className="divide-y divide-github-border/30">

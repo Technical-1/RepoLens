@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSession, signIn } from 'next-auth/react'
 import { Github, Lock, ArrowLeft, Search } from 'lucide-react'
 import Header from '@/components/Header'
@@ -12,7 +12,10 @@ import CommitHistory from '@/components/CommitHistory'
 import CodeFrequencyChart from '@/components/CodeFrequencyChart'
 import ContributorsList from '@/components/ContributorsList'
 import UserReposList from '@/components/UserReposList'
-import type { FullRepoAnalysis } from '@/types'
+import type { FullRepoAnalysis, UserRepo } from '@/types'
+
+// Cache TTL: 5 minutes
+const CACHE_TTL = 5 * 60 * 1000
 
 export default function Home() {
   const { data: session, status } = useSession()
@@ -21,6 +24,50 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+
+  // Cached user repos state
+  const [userRepos, setUserRepos] = useState<UserRepo[]>([])
+  const [reposLoading, setReposLoading] = useState(false)
+  const [reposError, setReposError] = useState<string | null>(null)
+  const [reposFetchedAt, setReposFetchedAt] = useState<number | null>(null)
+
+  // Fetch repos function
+  const fetchUserRepos = useCallback(async (force = false) => {
+    // Skip if not authenticated
+    if (status !== 'authenticated') return
+
+    // Skip if we have fresh data (unless forcing refresh)
+    if (!force && reposFetchedAt && Date.now() - reposFetchedAt < CACHE_TTL) {
+      return
+    }
+
+    setReposLoading(true)
+    setReposError(null)
+
+    try {
+      const res = await fetch('/api/user/repos')
+      if (!res.ok) throw new Error('Failed to fetch repos')
+      const data = await res.json()
+      setUserRepos(data.repos || [])
+      setReposFetchedAt(Date.now())
+    } catch (err) {
+      setReposError(err instanceof Error ? err.message : 'Failed to load repositories')
+    } finally {
+      setReposLoading(false)
+    }
+  }, [status, reposFetchedAt])
+
+  // Fetch repos when authenticated (with cache check)
+  useEffect(() => {
+    if (status === 'authenticated' && !reposFetchedAt && !reposLoading) {
+      fetchUserRepos()
+    }
+  }, [status, reposFetchedAt, reposLoading, fetchUserRepos])
+
+  // Refresh handler for manual refresh
+  const handleRefreshRepos = useCallback(() => {
+    fetchUserRepos(true)
+  }, [fetchUserRepos])
 
   const analyzeRepo = async (url: string) => {
     setLoading(true)
@@ -161,7 +208,13 @@ export default function Home() {
 
             {/* User Repos */}
             {!showSearch && !loading && (
-              <UserReposList onSelectRepo={analyzeRepo} />
+              <UserReposList
+                repos={userRepos}
+                loading={reposLoading}
+                error={reposError}
+                onSelectRepo={analyzeRepo}
+                onRefresh={handleRefreshRepos}
+              />
             )}
           </div>
         </div>
