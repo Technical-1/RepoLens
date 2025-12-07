@@ -79,9 +79,15 @@ export default function CommitHistory({ data }: CommitHistoryProps) {
                       <span>•</span>
                       <span>{formatDate(commit.date)}</span>
                       <span>•</span>
-                      <span className="font-mono text-xs bg-github-card px-2 py-0.5 rounded">
+                      <a
+                        href={`${data.repo.url}/commit/${commit.sha}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-mono text-xs bg-github-card px-2 py-0.5 rounded hover:bg-github-border hover:text-github-link transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {commit.sha.slice(0, 7)}
-                      </span>
+                      </a>
                     </div>
                   </div>
 
