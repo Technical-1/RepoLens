@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect, useRef } from 'react'
+import { Loader2 } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -10,15 +12,82 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts'
-import type { FullRepoAnalysis } from '@/types'
+import type { FullRepoAnalysis, CodeFrequency } from '@/types'
 
 interface CodeFrequencyChartProps {
   data: FullRepoAnalysis
 }
 
 export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
+  const [localData, setLocalData] = useState<CodeFrequency[]>(data.codeFrequency)
+  const [isPolling, setIsPolling] = useState(false)
+  const pollCountRef = useRef(0)
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const maxPolls = 6 // Poll up to 6 times (30 seconds total)
+
+  // Extract owner/repo from the URL
+  const repoUrl = data.repo.url
+  const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)/)
+  const owner = match?.[1]
+  const repo = match?.[2]
+
+  useEffect(() => {
+    // If we have data or no repo info, don't poll
+    if (localData.length > 0 || !owner || !repo) {
+      return
+    }
+
+    // Start polling
+    setIsPolling(true)
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/repo/stats', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ owner, repo, type: 'codeFrequency' }),
+        })
+
+        if (res.ok) {
+          const result = await res.json()
+          if (result.data && result.data.length > 0) {
+            setLocalData(result.data)
+            setIsPolling(false)
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current)
+            }
+            return
+          }
+        }
+
+        pollCountRef.current += 1
+        if (pollCountRef.current >= maxPolls) {
+          setIsPolling(false)
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current)
+          }
+        }
+      } catch {
+        // Silently fail and continue polling
+      }
+    }
+
+    // Poll every 5 seconds
+    pollIntervalRef.current = setInterval(poll, 5000)
+
+    // Initial poll after 3 seconds
+    const initialTimeout = setTimeout(poll, 3000)
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current)
+      }
+      clearTimeout(initialTimeout)
+    }
+  }, [localData.length, owner, repo])
+
   // Transform data for the chart - only show last 52 weeks
-  const chartData = data.codeFrequency
+  const chartData = localData
     .slice(-52)
     .map((item) => ({
       date: new Date(item.week * 1000).toLocaleDateString('en-US', {
@@ -36,8 +105,23 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
           <span className="w-2 h-2 rounded-full bg-gradient-to-r from-green-400 to-red-400"></span>
           Code Frequency
         </h3>
-        <div className="h-64 flex items-center justify-center text-github-muted">
-          <p>Code frequency data is being computed. Please try again later.</p>
+        <div className="h-64 flex flex-col items-center justify-center text-github-muted text-center px-4">
+          {isPolling ? (
+            <>
+              <Loader2 className="w-6 h-6 animate-spin mb-3 text-github-accent" />
+              <p className="mb-2">GitHub is generating statistics...</p>
+              <p className="text-sm text-github-muted/70">
+                This usually takes a few seconds. Auto-refreshing...
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="mb-2">Statistics unavailable for this repository.</p>
+              <p className="text-sm text-github-muted/70">
+                GitHub may still be computing stats. Try reloading the page later.
+              </p>
+            </>
+          )}
         </div>
       </div>
     )

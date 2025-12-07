@@ -9,15 +9,17 @@ import {
   GitFork, 
   Eye,
   Calendar,
-  Users
+  Users,
+  Share2
 } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
 
 interface StatsOverviewProps {
   data: FullRepoAnalysis
+  onEmbed?: () => void
 }
 
-export default function StatsOverview({ data }: StatsOverviewProps) {
+export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
   const formatNumber = (num: number): string => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
     if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
@@ -125,17 +127,28 @@ export default function StatsOverview({ data }: StatsOverviewProps) {
               </span>
             </div>
           </div>
-          <a
-            href={data.repo.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-text transition-colors flex-shrink-0"
-          >
-            View on GitHub
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-            </svg>
-          </a>
+          <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+            {!data.repo.private && onEmbed && (
+              <button
+                onClick={onEmbed}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-github-accent hover:bg-github-accent-hover rounded-lg text-white font-medium transition-colors"
+              >
+                <Share2 className="w-4 h-4" />
+                Embed
+              </button>
+            )}
+            <a
+              href={data.repo.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-text transition-colors"
+            >
+              View on GitHub
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
         </div>
       </div>
 

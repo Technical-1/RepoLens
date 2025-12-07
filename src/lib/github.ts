@@ -121,82 +121,54 @@ export async function getCommits(
 export async function getCodeFrequency(
   octokit: Octokit,
   owner: string,
-  repo: string,
-  retries: number = 3
+  repo: string
 ): Promise<CodeFrequency[]> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const { data, status } = await octokit.repos.getCodeFrequencyStats({ owner, repo })
+  try {
+    const { data, status } = await octokit.repos.getCodeFrequencyStats({ owner, repo })
 
-      // GitHub returns 202 when stats are being computed
-      if (status === 202 || !Array.isArray(data)) {
-        if (attempt < retries - 1) {
-          // Wait 2 seconds before retrying
-          await new Promise((resolve) => setTimeout(resolve, 2000))
-          continue
-        }
-        return []
-      }
-
-      return data.map((item) => ({
-        week: item[0],
-        additions: item[1],
-        deletions: Math.abs(item[2]),
-      }))
-    } catch {
-      if (attempt < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        continue
-      }
+    // GitHub returns 202 when stats are being computed - don't wait, just return empty
+    if (status === 202 || !Array.isArray(data)) {
       return []
     }
+
+    return data.map((item) => ({
+      week: item[0],
+      additions: item[1],
+      deletions: Math.abs(item[2]),
+    }))
+  } catch {
+    return []
   }
-  return []
 }
 
 export async function getContributors(
   octokit: Octokit,
   owner: string,
-  repo: string,
-  retries: number = 5
+  repo: string
 ): Promise<ContributorStats[]> {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const response = await octokit.repos.getContributorsStats({ owner, repo })
+  try {
+    const response = await octokit.repos.getContributorsStats({ owner, repo })
 
-      // GitHub returns 202 when stats are being computed
-      // The data might be empty or not an array in this case
-      if (response.status === 202 || !response.data || !Array.isArray(response.data)) {
-        if (attempt < retries - 1) {
-          // Exponential backoff: 1s, 2s, 3s, 4s
-          await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1000))
-          continue
-        }
-        // On final attempt, try the simple contributors endpoint as fallback
-        return await getContributorsFallback(octokit, owner, repo)
-      }
-
-      return response.data.map((contributor) => ({
-        author: contributor.author?.login || 'Unknown',
-        avatar: contributor.author?.avatar_url || '',
-        total: contributor.total,
-        weeks: contributor.weeks.map((w) => ({
-          week: w.w ?? 0,
-          additions: w.a ?? 0,
-          deletions: w.d ?? 0,
-          commits: w.c ?? 0,
-        })),
-      }))
-    } catch {
-      if (attempt < retries - 1) {
-        await new Promise((resolve) => setTimeout(resolve, (attempt + 1) * 1000))
-        continue
-      }
-      // Try fallback on error
+    // GitHub returns 202 when stats are being computed - use fallback immediately
+    if (response.status === 202 || !response.data || !Array.isArray(response.data)) {
       return await getContributorsFallback(octokit, owner, repo)
     }
+
+    return response.data.map((contributor) => ({
+      author: contributor.author?.login || 'Unknown',
+      avatar: contributor.author?.avatar_url || '',
+      total: contributor.total,
+      weeks: contributor.weeks.map((w) => ({
+        week: w.w ?? 0,
+        additions: w.a ?? 0,
+        deletions: w.d ?? 0,
+        commits: w.c ?? 0,
+      })),
+    }))
+  } catch {
+    // Try fallback on error
+    return await getContributorsFallback(octokit, owner, repo)
   }
-  return []
 }
 
 // Fallback: Use simple contributors endpoint (doesn't have weekly stats but always works)

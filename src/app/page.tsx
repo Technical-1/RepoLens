@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSession, signIn } from 'next-auth/react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Github, Lock, ArrowLeft, Search } from 'lucide-react'
 import Header from '@/components/Header'
 import RepoInput from '@/components/RepoInput'
@@ -13,6 +14,7 @@ import CodeFrequencyChart from '@/components/CodeFrequencyChart'
 import ContributorsList from '@/components/ContributorsList'
 import UserReposList from '@/components/UserReposList'
 import ParticleBackground from '@/components/ParticleBackground'
+import EmbedShare from '@/components/EmbedShare'
 import type { FullRepoAnalysis, UserRepo } from '@/types'
 
 // Cache TTL: 5 minutes
@@ -20,11 +22,15 @@ const CACHE_TTL = 5 * 60 * 1000
 
 export default function Home() {
   const { data: session, status } = useSession()
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [repoData, setRepoData] = useState<FullRepoAnalysis | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [requiresAuth, setRequiresAuth] = useState(false)
   const [showSearch, setShowSearch] = useState(false)
+  const [showEmbed, setShowEmbed] = useState(false)
+  const initialLoadDone = useRef(false)
 
   // Cached user repos state
   const [userRepos, setUserRepos] = useState<UserRepo[]>([])
@@ -65,12 +71,27 @@ export default function Home() {
     }
   }, [status, reposFetchedAt, reposLoading, fetchUserRepos])
 
+  // Check URL for repo param on initial load
+  useEffect(() => {
+    if (initialLoadDone.current) return
+    
+    const repoParam = searchParams.get('repo')
+    if (repoParam && !repoData && !loading) {
+      initialLoadDone.current = true
+      // Decode and analyze the repo from URL
+      analyzeRepoInternal(decodeURIComponent(repoParam), false)
+    } else {
+      initialLoadDone.current = true
+    }
+  }, [searchParams, repoData, loading])
+
   // Refresh handler for manual refresh
   const handleRefreshRepos = useCallback(() => {
     fetchUserRepos(true)
   }, [fetchUserRepos])
 
-  const analyzeRepo = async (url: string) => {
+  // Internal analyze function
+  const analyzeRepoInternal = async (url: string, updateUrl: boolean = true) => {
     setLoading(true)
     setError(null)
     setRequiresAuth(false)
@@ -89,20 +110,39 @@ export default function Home() {
       if (!res.ok) {
         setError(data.error || 'Failed to analyze repository')
         setRequiresAuth(data.requiresAuth || false)
+        // Clear URL on error
+        if (updateUrl) {
+          router.replace('/', { scroll: false })
+        }
         return
       }
 
       setRepoData(data)
+      
+      // Update URL with repo info
+      if (updateUrl && data.repo?.fullName) {
+        router.replace(`/?repo=${encodeURIComponent(data.repo.fullName)}`, { scroll: false })
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
+      if (updateUrl) {
+        router.replace('/', { scroll: false })
+      }
     } finally {
       setLoading(false)
     }
   }
 
+  // Public analyze function (always updates URL)
+  const analyzeRepo = (url: string) => {
+    analyzeRepoInternal(url, true)
+  }
+
   const goBackToRepos = () => {
     setRepoData(null)
     setError(null)
+    // Clear URL param
+    router.replace('/', { scroll: false })
     setShowSearch(false)
   }
 
@@ -128,7 +168,7 @@ export default function Home() {
 
             {/* Stats Content */}
             <div className="space-y-8">
-              <StatsOverview data={repoData} />
+              <StatsOverview data={repoData} onEmbed={() => setShowEmbed(true)} />
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <LanguageBreakdown data={repoData} />
@@ -142,6 +182,14 @@ export default function Home() {
             </div>
           </div>
         </div>
+
+        {/* Embed Modal */}
+        {showEmbed && repoData && (
+          <EmbedShare
+            repoFullName={repoData.repo.fullName}
+            onClose={() => setShowEmbed(false)}
+          />
+        )}
 
         <Footer />
       </main>
@@ -157,15 +205,6 @@ export default function Home() {
         
         <div className="pt-20 px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
           <div className="max-w-5xl mx-auto">
-            {/* Dashboard Header */}
-            <div className="mb-8">
-              <h1 className="text-3xl font-bold text-white mb-2">
-                Welcome back, {session.user?.name?.split(' ')[0] || 'there'}!
-              </h1>
-              <p className="text-github-muted">
-                Select a repository to analyze or search for any public repo.
-              </p>
-            </div>
 
             {/* Search Toggle */}
             {!showSearch ? (
@@ -283,7 +322,7 @@ export default function Home() {
       {repoData && (
         <div className="px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
           <div className="max-w-7xl mx-auto space-y-8">
-            <StatsOverview data={repoData} />
+            <StatsOverview data={repoData} onEmbed={() => setShowEmbed(true)} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <LanguageBreakdown data={repoData} />
@@ -295,6 +334,14 @@ export default function Home() {
               <ContributorsList data={repoData} />
             </div>
           </div>
+
+          {/* Embed Modal */}
+          {showEmbed && (
+            <EmbedShare
+              repoFullName={repoData.repo.fullName}
+              onClose={() => setShowEmbed(false)}
+            />
+          )}
         </div>
       )}
 
