@@ -16,7 +16,37 @@ export async function GET(request: NextRequest) {
 
   try {
     const octokit = new Octokit()
-    const { data } = await octokit.repos.get({ owner, repo })
+    
+    // Fetch repo info and commits
+    const [repoData, commits] = await Promise.all([
+      octokit.repos.get({ owner, repo }),
+      octokit.repos.listCommits({ owner, repo, per_page: 50 }),
+    ])
+
+    // Get detailed commit stats (limited to avoid rate limits)
+    let totalAdditions = 0
+    let totalDeletions = 0
+    
+    const commitDetails = await Promise.all(
+      commits.data.slice(0, 20).map(async (commit) => {
+        try {
+          const { data } = await octokit.repos.getCommit({ owner, repo, ref: commit.sha })
+          return {
+            additions: data.stats?.additions || 0,
+            deletions: data.stats?.deletions || 0,
+          }
+        } catch {
+          return { additions: 0, deletions: 0 }
+        }
+      })
+    )
+
+    commitDetails.forEach((c) => {
+      totalAdditions += c.additions
+      totalDeletions += c.deletions
+    })
+
+    const totalLines = totalAdditions - totalDeletions > 0 ? totalAdditions - totalDeletions : totalAdditions
 
     const isDark = theme === 'dark'
     const text = isDark ? '#c9d1d9' : '#24292f'
@@ -56,23 +86,23 @@ export async function GET(request: NextRequest) {
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '22px', fontWeight: 700, color: text }}>{data.full_name}</span>
-              <span style={{ fontSize: '14px', color: muted }}>via RepoLens</span>
+              <span style={{ fontSize: '22px', fontWeight: 700, color: text }}>{repoData.data.full_name}</span>
+              <span style={{ fontSize: '14px', color: muted }}>Code Statistics via RepoLens</span>
             </div>
           </div>
 
           {/* Stats Grid */}
           <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-            <StatBox label="Stars" value={formatNumber(data.stargazers_count)} color="#f0b429" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Forks" value={formatNumber(data.forks_count)} color="#58a6ff" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Watchers" value={formatNumber(data.watchers_count)} color="#a371f7" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Issues" value={formatNumber(data.open_issues_count)} color="#3fb950" cardBg={cardBg} mutedColor={muted} />
+            <StatBox label="Total Lines" value={formatNumber(totalLines)} color="#58a6ff" cardBg={cardBg} textColor={text} mutedColor={muted} />
+            <StatBox label="Lines Added" value={formatNumber(totalAdditions)} color="#3fb950" cardBg={cardBg} textColor={text} mutedColor={muted} />
+            <StatBox label="Lines Removed" value={formatNumber(totalDeletions)} color="#f85149" cardBg={cardBg} textColor={text} mutedColor={muted} />
+            <StatBox label="Commits" value={formatNumber(commits.data.length)} color="#a371f7" cardBg={cardBg} textColor={text} mutedColor={muted} />
           </div>
         </div>
       ),
       {
         width: 600,
-        height: 200,
+        height: 220,
       }
     )
   } catch {
@@ -85,12 +115,14 @@ function StatBox({
   value, 
   color, 
   cardBg, 
+  textColor, 
   mutedColor 
 }: { 
   label: string
   value: string
   color: string
   cardBg: string
+  textColor: string
   mutedColor: string
 }) {
   return (
@@ -116,3 +148,4 @@ function formatNumber(num: number): string {
   if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
   return num.toString()
 }
+

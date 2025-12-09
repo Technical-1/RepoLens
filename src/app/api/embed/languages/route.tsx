@@ -24,8 +24,6 @@ export async function GET(request: NextRequest) {
     ])
 
     const isDark = theme === 'dark'
-    const bg = isDark ? '#0d1117' : '#ffffff'
-    const border = isDark ? '#30363d' : '#d0d7de'
     const text = isDark ? '#c9d1d9' : '#24292f'
     const muted = isDark ? '#8b949e' : '#57606a'
     const cardBg = isDark ? '#161b22' : '#f6f8fa'
@@ -50,37 +48,35 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             width: '100%',
             height: '100%',
-            backgroundColor: bg,
-            padding: '24px',
+            padding: '32px',
             fontFamily: 'system-ui, -apple-system, sans-serif',
-            border: `1px solid ${border}`,
-            borderRadius: '12px',
+            background: 'transparent',
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <div
                 style={{
-                  width: '8px',
-                  height: '8px',
+                  width: '12px',
+                  height: '12px',
                   borderRadius: '50%',
                   background: 'linear-gradient(135deg, #58a6ff, #a371f7)',
                 }}
               />
-              <span style={{ fontSize: '16px', fontWeight: 600, color: text }}>Languages</span>
+              <span style={{ fontSize: '20px', fontWeight: 700, color: text }}>Languages</span>
             </div>
-            <span style={{ fontSize: '12px', color: muted }}>{repoData.data.full_name}</span>
+            <span style={{ fontSize: '14px', color: muted }}>{repoData.data.full_name}</span>
           </div>
 
           {/* Language Bar */}
           <div
             style={{
               display: 'flex',
-              height: '10px',
-              borderRadius: '5px',
+              height: '12px',
+              borderRadius: '6px',
               overflow: 'hidden',
-              marginBottom: '16px',
+              marginBottom: '20px',
             }}
           >
             {languages.map((lang) => (
@@ -89,48 +85,47 @@ export async function GET(request: NextRequest) {
                 style={{
                   width: `${lang.percentage}%`,
                   backgroundColor: lang.color,
-                  minWidth: lang.percentage > 0.5 ? '4px' : '0',
+                  minWidth: lang.percentage > 0.5 ? '6px' : '0',
                 }}
               />
             ))}
           </div>
 
           {/* Language List */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
             {languages.map((lang) => (
               <div
                 key={lang.name}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
+                  gap: '8px',
+                  padding: '8px 16px',
                   backgroundColor: cardBg,
-                  borderRadius: '6px',
+                  borderRadius: '8px',
                 }}
               >
                 <div
                   style={{
-                    width: '10px',
-                    height: '10px',
+                    width: '12px',
+                    height: '12px',
                     borderRadius: '50%',
                     backgroundColor: lang.color,
                   }}
                 />
-                <span style={{ fontSize: '13px', color: text }}>{lang.name}</span>
-                <span style={{ fontSize: '12px', color: muted }}>{lang.percentage.toFixed(1)}%</span>
+                <span style={{ fontSize: '15px', fontWeight: 500, color: text }}>{lang.name}</span>
+                <span style={{ fontSize: '14px', color: muted }}>{lang.percentage.toFixed(1)}%</span>
               </div>
             ))}
           </div>
         </div>
       ),
       {
-        width: 480,
-        height: 180,
+        width: 600,
+        height: 200,
       }
     )
   } catch {
     return new Response('Failed to fetch repository data', { status: 500 })
   }
 }
-

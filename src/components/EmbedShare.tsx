@@ -8,8 +8,14 @@ interface EmbedShareProps {
   onClose: () => void
 }
 
-type EmbedType = 'stats' | 'languages'
+type EmbedType = 'stats' | 'code-stats' | 'languages'
 type Theme = 'dark' | 'light'
+
+const EMBED_LABELS: Record<EmbedType, string> = {
+  'stats': 'Repo Stats',
+  'code-stats': 'Code Stats',
+  'languages': 'Languages',
+}
 
 export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   const [selectedType, setSelectedType] = useState<EmbedType>('stats')
@@ -20,8 +26,9 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://repolens.io'
 
   const embedUrls: Record<EmbedType, string> = {
-    stats: `${baseUrl}/api/embed/stats?owner=${owner}&repo=${repo}&theme=${theme}`,
-    languages: `${baseUrl}/api/embed/languages?owner=${owner}&repo=${repo}&theme=${theme}`,
+    'stats': `${baseUrl}/api/embed/stats?owner=${owner}&repo=${repo}&theme=${theme}`,
+    'code-stats': `${baseUrl}/api/embed/code-stats?owner=${owner}&repo=${repo}&theme=${theme}`,
+    'languages': `${baseUrl}/api/embed/languages?owner=${owner}&repo=${repo}&theme=${theme}`,
   }
 
   const markdownCode = `[![RepoLens ${selectedType}](${embedUrls[selectedType]})](${baseUrl}/?repo=${repoFullName})`
@@ -71,18 +78,18 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
           {/* Type Selection */}
           <div>
             <label className="block text-sm font-medium text-github-text mb-3">Widget Type</label>
-            <div className="flex gap-3">
-              {(['stats', 'languages'] as const).map((type) => (
+            <div className="flex flex-wrap gap-3">
+              {(['stats', 'code-stats', 'languages'] as const).map((type) => (
                 <button
                   key={type}
                   onClick={() => setSelectedType(type)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     selectedType === type
                       ? 'bg-github-accent text-white'
                       : 'bg-github-card text-github-muted hover:text-white border border-github-border'
                   }`}
                 >
-                  {type === 'stats' ? 'Repository Stats' : 'Language Breakdown'}
+                  {EMBED_LABELS[type]}
                 </button>
               ))}
             </div>
