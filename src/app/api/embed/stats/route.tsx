@@ -16,7 +16,19 @@ export async function GET(request: NextRequest) {
 
   try {
     const octokit = new Octokit()
-    const { data } = await octokit.repos.get({ owner, repo })
+    
+    let data
+    try {
+      const response = await octokit.repos.get({ owner, repo })
+      data = response.data
+    } catch (apiError: unknown) {
+      const message = apiError instanceof Error ? apiError.message : 'Unknown error'
+      console.error('GitHub API error:', message)
+      if (message.includes('rate limit')) {
+        return new Response('GitHub API rate limit exceeded. Please try again later.', { status: 429 })
+      }
+      return new Response(`GitHub API error: ${message}`, { status: 500 })
+    }
 
     const isDark = theme === 'dark'
     const text = isDark ? '#c9d1d9' : '#24292f'
@@ -73,10 +85,15 @@ export async function GET(request: NextRequest) {
       {
         width: 600,
         height: 200,
+        headers: {
+          'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        },
       }
     )
-  } catch {
-    return new Response('Failed to fetch repository data', { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Embed stats error:', message)
+    return new Response(`Failed to fetch repository data: ${message}`, { status: 500 })
   }
 }
 

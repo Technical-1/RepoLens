@@ -17,34 +17,41 @@ export async function GET(request: NextRequest) {
   try {
     const octokit = new Octokit()
     
-    // Fetch repo info and commits
-    const [repoData, commits] = await Promise.all([
-      octokit.repos.get({ owner, repo }),
-      octokit.repos.listCommits({ owner, repo, per_page: 50 }),
-    ])
-
-    // Get detailed commit stats (limited to avoid rate limits)
+    // Fetch repo info and contributor stats (uses cached stats endpoint, fewer API calls)
+    let repoData
     let totalAdditions = 0
     let totalDeletions = 0
+    let commitCount = 0
     
-    const commitDetails = await Promise.all(
-      commits.data.slice(0, 20).map(async (commit) => {
-        try {
-          const { data } = await octokit.repos.getCommit({ owner, repo, ref: commit.sha })
-          return {
-            additions: data.stats?.additions || 0,
-            deletions: data.stats?.deletions || 0,
-          }
-        } catch {
-          return { additions: 0, deletions: 0 }
-        }
-      })
-    )
-
-    commitDetails.forEach((c) => {
-      totalAdditions += c.additions
-      totalDeletions += c.deletions
-    })
+    try {
+      const [repoResponse, statsResponse] = await Promise.all([
+        octokit.repos.get({ owner, repo }),
+        octokit.repos.getContributorsStats({ owner, repo }).catch(() => ({ data: [], status: 202 })),
+      ])
+      
+      repoData = repoResponse
+      
+      // Use contributor stats if available (already cached by GitHub)
+      if (Array.isArray(statsResponse.data) && statsResponse.data.length > 0) {
+        statsResponse.data.forEach((contributor) => {
+          contributor.weeks?.forEach((week) => {
+            totalAdditions += week.a || 0
+            totalDeletions += week.d || 0
+            commitCount += week.c || 0
+          })
+        })
+      } else {
+        // Fallback to basic commit count
+        commitCount = repoData.data.size || 0
+      }
+    } catch (apiError: unknown) {
+      const message = apiError instanceof Error ? apiError.message : 'Unknown error'
+      console.error('GitHub API error:', message)
+      if (message.includes('rate limit')) {
+        return new Response('GitHub API rate limit exceeded. Please try again later.', { status: 429 })
+      }
+      return new Response(`GitHub API error: ${message}`, { status: 500 })
+    }
 
     const totalLines = totalAdditions - totalDeletions > 0 ? totalAdditions - totalDeletions : totalAdditions
 
@@ -86,7 +93,7 @@ export async function GET(request: NextRequest) {
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '22px', fontWeight: 700, color: text }}>{repoData.data.full_name}</span>
+              <span style={{ fontSize: '22px', fontWeight: 700, color: text }}>{repoData?.data.full_name}</span>
               <span style={{ fontSize: '14px', color: muted }}>Code Statistics via RepoLens</span>
             </div>
           </div>
@@ -96,17 +103,22 @@ export async function GET(request: NextRequest) {
             <StatBox label="Total Lines" value={formatNumber(totalLines)} color="#58a6ff" cardBg={cardBg} textColor={text} mutedColor={muted} />
             <StatBox label="Lines Added" value={formatNumber(totalAdditions)} color="#3fb950" cardBg={cardBg} textColor={text} mutedColor={muted} />
             <StatBox label="Lines Removed" value={formatNumber(totalDeletions)} color="#f85149" cardBg={cardBg} textColor={text} mutedColor={muted} />
-            <StatBox label="Commits" value={formatNumber(commits.data.length)} color="#a371f7" cardBg={cardBg} textColor={text} mutedColor={muted} />
+            <StatBox label="Commits" value={formatNumber(commitCount)} color="#a371f7" cardBg={cardBg} textColor={text} mutedColor={muted} />
           </div>
         </div>
       ),
       {
         width: 600,
         height: 220,
+        headers: {
+          'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
+        },
       }
     )
-  } catch {
-    return new Response('Failed to fetch repository data', { status: 500 })
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Embed code-stats error:', message)
+    return new Response(`Failed to fetch repository data: ${message}`, { status: 500 })
   }
 }
 
