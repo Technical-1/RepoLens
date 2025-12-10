@@ -19,14 +19,27 @@ export async function GET(request: NextRequest) {
   try {
     const octokit = new Octokit()
     
-    let repoData, langData
+    let repoFullName = `${owner}/${repo}`
+    let languages: { name: string; percentage: number; color: string }[] = []
+    
     try {
       const [repoResponse, langResponse] = await Promise.all([
         octokit.repos.get({ owner, repo }),
         octokit.repos.listLanguages({ owner, repo }),
       ])
-      repoData = repoResponse
-      langData = langResponse
+      repoFullName = repoResponse.data.full_name
+      
+      // Calculate percentages
+      const totalBytes = Object.values(langResponse.data).reduce((sum, bytes) => sum + bytes, 0)
+      languages = Object.entries(langResponse.data)
+        .map(([name, bytes]) => ({
+          name,
+          bytes,
+          percentage: totalBytes > 0 ? (bytes / totalBytes) * 100 : 0,
+          color: LANGUAGE_COLORS[name] || LANGUAGE_COLORS.default,
+        }))
+        .sort((a, b) => b.bytes - a.bytes)
+        .slice(0, limit)
     } catch (apiError: unknown) {
       const message = apiError instanceof Error ? apiError.message : 'Unknown error'
       console.error('GitHub API error:', message)
@@ -37,21 +50,11 @@ export async function GET(request: NextRequest) {
     }
 
     const isDark = theme === 'dark'
-    const text = isDark ? '#c9d1d9' : '#24292f'
-    const muted = isDark ? '#8b949e' : '#57606a'
+    const bg = isDark ? '#0d1117' : '#ffffff'
+    const text = isDark ? '#e6edf3' : '#1f2328'
+    const muted = isDark ? '#8b949e' : '#656d76'
     const cardBg = isDark ? '#161b22' : '#f6f8fa'
-
-    // Calculate percentages
-    const totalBytes = Object.values(langData.data).reduce((sum, bytes) => sum + bytes, 0)
-    const languages = Object.entries(langData.data)
-      .map(([name, bytes]) => ({
-        name,
-        bytes,
-        percentage: totalBytes > 0 ? (bytes / totalBytes) * 100 : 0,
-        color: LANGUAGE_COLORS[name] || LANGUAGE_COLORS.default,
-      }))
-      .sort((a, b) => b.bytes - a.bytes)
-      .slice(0, limit)
+    const border = isDark ? '#30363d' : '#d0d7de'
 
     return new ImageResponse(
       (
@@ -61,81 +64,105 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             width: '100%',
             height: '100%',
-            padding: '32px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            background: 'transparent',
+            backgroundColor: bg,
+            padding: 40,
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+            border: `2px solid ${border}`,
+            borderRadius: 16,
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginBottom: 24,
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
               <div
                 style={{
-                  width: '12px',
-                  height: '12px',
-                  borderRadius: '50%',
+                  display: 'flex',
+                  width: 16,
+                  height: 16,
+                  borderRadius: 8,
                   background: 'linear-gradient(135deg, #58a6ff, #a371f7)',
+                  marginRight: 12,
                 }}
               />
-              <span style={{ fontSize: '20px', fontWeight: 700, color: text }}>Languages</span>
+              <span style={{ fontSize: 24, fontWeight: 700, color: text }}>Languages</span>
             </div>
-            <span style={{ fontSize: '14px', color: muted }}>{repoData.data.full_name}</span>
+            <span style={{ fontSize: 16, color: muted }}>{repoFullName}</span>
           </div>
 
           {/* Language Bar */}
           <div
             style={{
               display: 'flex',
-              height: '12px',
-              borderRadius: '6px',
+              flexDirection: 'row',
+              width: '100%',
+              height: 16,
+              borderRadius: 8,
               overflow: 'hidden',
-              marginBottom: '20px',
+              marginBottom: 24,
             }}
           >
             {languages.map((lang) => (
               <div
                 key={lang.name}
                 style={{
+                  display: 'flex',
                   width: `${lang.percentage}%`,
+                  height: '100%',
                   backgroundColor: lang.color,
-                  minWidth: lang.percentage > 0.5 ? '6px' : '0',
                 }}
               />
             ))}
           </div>
 
           {/* Language List */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 12,
+            }}
+          >
             {languages.map((lang) => (
               <div
                 key={lang.name}
                 style={{
                   display: 'flex',
+                  flexDirection: 'row',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
                   backgroundColor: cardBg,
-                  borderRadius: '8px',
+                  borderRadius: 8,
+                  padding: '10px 16px',
                 }}
               >
                 <div
                   style={{
-                    width: '12px',
-                    height: '12px',
-                    borderRadius: '50%',
+                    display: 'flex',
+                    width: 14,
+                    height: 14,
+                    borderRadius: 7,
                     backgroundColor: lang.color,
+                    marginRight: 10,
                   }}
                 />
-                <span style={{ fontSize: '15px', fontWeight: 500, color: text }}>{lang.name}</span>
-                <span style={{ fontSize: '14px', color: muted }}>{lang.percentage.toFixed(1)}%</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: text, marginRight: 8 }}>{lang.name}</span>
+                <span style={{ fontSize: 14, color: muted }}>{lang.percentage.toFixed(1)}%</span>
               </div>
             ))}
           </div>
         </div>
       ),
       {
-        width: 600,
-        height: 200,
+        width: 700,
+        height: 240,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
         },

@@ -31,10 +31,18 @@ export async function GET(request: NextRequest) {
     }
 
     const isDark = theme === 'dark'
-    const text = isDark ? '#c9d1d9' : '#24292f'
-    const muted = isDark ? '#8b949e' : '#57606a'
+    const bg = isDark ? '#0d1117' : '#ffffff'
+    const text = isDark ? '#e6edf3' : '#1f2328'
+    const muted = isDark ? '#8b949e' : '#656d76'
     const cardBg = isDark ? '#161b22' : '#f6f8fa'
-    const accent = '#238636'
+    const border = isDark ? '#30363d' : '#d0d7de'
+
+    const stats = [
+      { label: 'Stars', value: formatNumber(data.stargazers_count), color: '#f0b429' },
+      { label: 'Forks', value: formatNumber(data.forks_count), color: '#58a6ff' },
+      { label: 'Watchers', value: formatNumber(data.watchers_count), color: '#a371f7' },
+      { label: 'Issues', value: formatNumber(data.open_issues_count), color: '#3fb950' },
+    ]
 
     return new ImageResponse(
       (
@@ -44,47 +52,77 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             width: '100%',
             height: '100%',
-            padding: '32px',
-            fontFamily: 'system-ui, -apple-system, sans-serif',
-            background: 'transparent',
+            backgroundColor: bg,
+            padding: 40,
+            fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+            border: `2px solid ${border}`,
+            borderRadius: 16,
           }}
         >
           {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 32,
+            }}
+          >
             <div
               style={{
-                width: '48px',
-                height: '48px',
-                borderRadius: '12px',
-                background: `linear-gradient(135deg, ${accent}, #2ea043)`,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                width: 56,
+                height: 56,
+                borderRadius: 12,
+                background: 'linear-gradient(135deg, #238636, #2ea043)',
+                marginRight: 16,
               }}
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                 <circle cx="11" cy="11" r="8" />
                 <path d="m21 21-4.3-4.3" />
               </svg>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: '22px', fontWeight: 700, color: text }}>{data.full_name}</span>
-              <span style={{ fontSize: '14px', color: muted }}>via RepoLens</span>
+              <span style={{ fontSize: 28, fontWeight: 700, color: text }}>{data.full_name}</span>
+              <span style={{ fontSize: 16, color: muted }}>via RepoLens</span>
             </div>
           </div>
 
           {/* Stats Grid */}
-          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-            <StatBox label="Stars" value={formatNumber(data.stargazers_count)} color="#f0b429" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Forks" value={formatNumber(data.forks_count)} color="#58a6ff" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Watchers" value={formatNumber(data.watchers_count)} color="#a371f7" cardBg={cardBg} mutedColor={muted} />
-            <StatBox label="Issues" value={formatNumber(data.open_issues_count)} color="#3fb950" cardBg={cardBg} mutedColor={muted} />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'row',
+              gap: 24,
+            }}
+          >
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: cardBg,
+                  borderRadius: 12,
+                  padding: '20px 28px',
+                  minWidth: 120,
+                }}
+              >
+                <span style={{ fontSize: 36, fontWeight: 700, color: stat.color }}>{stat.value}</span>
+                <span style={{ fontSize: 16, color: muted, marginTop: 4 }}>{stat.label}</span>
+              </div>
+            ))}
           </div>
         </div>
       ),
       {
-        width: 600,
-        height: 200,
+        width: 700,
+        height: 260,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
         },
@@ -95,37 +133,6 @@ export async function GET(request: NextRequest) {
     console.error('Embed stats error:', message)
     return new Response(`Failed to fetch repository data: ${message}`, { status: 500 })
   }
-}
-
-function StatBox({ 
-  label, 
-  value, 
-  color, 
-  cardBg, 
-  mutedColor 
-}: { 
-  label: string
-  value: string
-  color: string
-  cardBg: string
-  mutedColor: string
-}) {
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        padding: '16px 24px',
-        backgroundColor: cardBg,
-        borderRadius: '12px',
-        minWidth: '110px',
-      }}
-    >
-      <span style={{ fontSize: '32px', fontWeight: 700, color }}>{value}</span>
-      <span style={{ fontSize: '14px', color: mutedColor, marginTop: '4px' }}>{label}</span>
-    </div>
-  )
 }
 
 function formatNumber(num: number): string {
