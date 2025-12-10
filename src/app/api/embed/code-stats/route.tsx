@@ -23,21 +23,54 @@ export async function GET(request: NextRequest) {
     let commitCount = 0
     
     try {
-      const [repoResponse, statsResponse] = await Promise.all([
-        octokit.repos.get({ owner, repo }),
-        octokit.repos.getContributorsStats({ owner, repo }).catch(() => ({ data: [], status: 202 })),
-      ])
-      
+      // Fetch repo info
+      const repoResponse = await octokit.repos.get({ owner, repo })
       repoFullName = repoResponse.data.full_name
       
-      // Use contributor stats if available (already cached by GitHub)
-      if (Array.isArray(statsResponse.data) && statsResponse.data.length > 0) {
-        statsResponse.data.forEach((contributor) => {
-          contributor.weeks?.forEach((week) => {
-            totalAdditions += week.a || 0
-            totalDeletions += week.d || 0
-            commitCount += week.c || 0
+      // Try Code Frequency first - gives COMPLETE historical data in 1 API call
+      // This sums ALL additions/deletions across the entire repo history
+      const codeFreqResponse = await octokit.repos.getCodeFrequencyStats({ owner, repo })
+      
+      if (codeFreqResponse.status === 200 && Array.isArray(codeFreqResponse.data) && codeFreqResponse.data.length > 0) {
+        // Sum all weeks to get total additions/deletions for entire repo history
+        codeFreqResponse.data.forEach((week) => {
+          totalAdditions += week[1] || 0  // additions
+          totalDeletions += Math.abs(week[2] || 0)  // deletions (negative in API)
+        })
+        
+        // Get commit count from participation stats (also cached by GitHub)
+        try {
+          const participationResponse = await octokit.repos.getParticipationStats({ owner, repo })
+          if (participationResponse.status === 200 && participationResponse.data.all) {
+            commitCount = participationResponse.data.all.reduce((sum, week) => sum + week, 0)
+          }
+        } catch {
+          // If participation fails, estimate from code frequency weeks
+          commitCount = codeFreqResponse.data.length * 2 // rough estimate
+        }
+      } else {
+        // Fallback: Code frequency not ready (202), fetch from commits
+        const commitsResponse = await octokit.repos.listCommits({ owner, repo, per_page: 50 })
+        commitCount = commitsResponse.data.length
+        
+        // Get detailed stats for commits
+        const commitStats = await Promise.all(
+          commitsResponse.data.slice(0, 30).map(async (commit) => {
+            try {
+              const { data } = await octokit.repos.getCommit({ owner, repo, ref: commit.sha })
+              return { 
+                additions: data.stats?.additions || 0, 
+                deletions: data.stats?.deletions || 0 
+              }
+            } catch {
+              return { additions: 0, deletions: 0 }
+            }
           })
+        )
+        
+        commitStats.forEach((s) => {
+          totalAdditions += s.additions
+          totalDeletions += s.deletions
         })
       }
     } catch (apiError: unknown) {
