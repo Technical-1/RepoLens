@@ -76,10 +76,71 @@ export async function GET(request: NextRequest) {
     } catch (apiError: unknown) {
       const message = apiError instanceof Error ? apiError.message : 'Unknown error'
       console.error('GitHub API error:', message)
+      
+      // Return an error image instead of broken preview
+      const isDark = theme === 'dark'
+      const errorBg = isDark ? '#0d1117' : '#ffffff'
+      const errorText = isDark ? '#e6edf3' : '#1f2328'
+      const errorMuted = isDark ? '#8b949e' : '#656d76'
+      const errorBorder = isDark ? '#30363d' : '#d0d7de'
+      
+      let errorTitle = 'Unable to Load Stats'
+      let errorDescription = message
+      
       if (message.includes('rate limit')) {
-        return new Response('GitHub API rate limit exceeded. Please try again later.', { status: 429 })
+        errorTitle = 'Rate Limit Exceeded'
+        errorDescription = 'GitHub API rate limit reached. Try again later.'
+      } else if (message.includes('10000 commits')) {
+        errorTitle = 'Repository Too Large'
+        errorDescription = 'This repo has 10,000+ commits. Stats unavailable via API.'
       }
-      return new Response(`GitHub API error: ${message}`, { status: 500 })
+      
+      return new ImageResponse(
+        (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: '100%',
+              backgroundColor: errorBg,
+              padding: 40,
+              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
+              border: `2px solid ${errorBorder}`,
+              borderRadius: 16,
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 64,
+                height: 64,
+                borderRadius: 32,
+                backgroundColor: '#f8514926',
+                marginBottom: 16,
+              }}
+            >
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f85149" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 8v4M12 16h.01" />
+              </svg>
+            </div>
+            <span style={{ fontSize: 24, fontWeight: 700, color: errorText, marginBottom: 8 }}>{errorTitle}</span>
+            <span style={{ fontSize: 14, color: errorMuted, textAlign: 'center' }}>{errorDescription}</span>
+          </div>
+        ),
+        {
+          width: 720,
+          height: 260,
+          headers: {
+            'Cache-Control': 'public, max-age=300, s-maxage=300',
+          },
+        }
+      )
     }
 
     const totalLines = Math.max(totalAdditions - totalDeletions, 0)
