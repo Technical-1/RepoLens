@@ -20,15 +20,28 @@ const EMBED_LABELS: Record<EmbedType, string> = {
 export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   const [selectedType, setSelectedType] = useState<EmbedType>('stats')
   const [theme, setTheme] = useState<Theme>('dark')
+  const [hideRepoName, setHideRepoName] = useState(false)
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   const [owner, repo] = repoFullName.split('/')
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://repolens.io'
 
+  const buildEmbedUrl = (type: EmbedType) => {
+    const params = new URLSearchParams({
+      owner,
+      repo,
+      theme,
+    })
+    if (hideRepoName) {
+      params.set('hideRepoName', 'true')
+    }
+    return `${baseUrl}/api/embed/${type}?${params.toString()}`
+  }
+
   const embedUrls: Record<EmbedType, string> = {
-    'stats': `${baseUrl}/api/embed/stats?owner=${owner}&repo=${repo}&theme=${theme}`,
-    'code-stats': `${baseUrl}/api/embed/code-stats?owner=${owner}&repo=${repo}&theme=${theme}`,
-    'languages': `${baseUrl}/api/embed/languages?owner=${owner}&repo=${repo}&theme=${theme}`,
+    'stats': buildEmbedUrl('stats'),
+    'code-stats': buildEmbedUrl('code-stats'),
+    'languages': buildEmbedUrl('languages'),
   }
 
   const markdownCode = `[![RepoLens ${selectedType}](${embedUrls[selectedType]})](${baseUrl}/?repo=${repoFullName})`
@@ -53,8 +66,8 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-20 bg-black/60 backdrop-blur-sm">
+      <div className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[calc(100vh-6rem)] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-github-border/50">
           <div className="flex items-center gap-3">
@@ -113,6 +126,20 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Hide Repo Name Option */}
+          <div>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideRepoName}
+                onChange={(e) => setHideRepoName(e.target.checked)}
+                className="w-5 h-5 rounded border-github-border bg-github-card text-github-accent focus:ring-github-accent focus:ring-offset-0 cursor-pointer"
+              />
+              <span className="text-sm font-medium text-github-text">Hide repository name</span>
+            </label>
+            <p className="text-xs text-github-muted mt-1 ml-8">Show only the stats without the repo name header</p>
           </div>
 
           {/* Preview */}

@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
   const owner = searchParams.get('owner')
   const repo = searchParams.get('repo')
   const theme = searchParams.get('theme') || 'dark'
+  const hideRepoName = searchParams.get('hideRepoName') === 'true'
 
   if (!owner || !repo) {
     return new Response('Missing owner or repo parameter', { status: 400 })
@@ -159,6 +160,8 @@ export async function GET(request: NextRequest) {
       { label: 'Commits', value: formatNumber(commitCount), color: '#a371f7' },
     ]
 
+    const imageHeight = hideRepoName ? 160 : 260
+
     return new ImageResponse(
       (
         <div
@@ -168,43 +171,46 @@ export async function GET(request: NextRequest) {
             width: '100%',
             height: '100%',
             backgroundColor: bg,
-            padding: 40,
+            padding: hideRepoName ? 30 : 40,
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
             border: `2px solid ${border}`,
             borderRadius: 16,
+            justifyContent: hideRepoName ? 'center' : 'flex-start',
           }}
         >
           {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              marginBottom: 32,
-            }}
-          >
+          {!hideRepoName && (
             <div
               style={{
                 display: 'flex',
+                flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'center',
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                background: 'linear-gradient(135deg, #238636, #2ea043)',
-                marginRight: 16,
+                marginBottom: 32,
               }}
             >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
-                <circle cx="11" cy="11" r="8" />
-                <path d="m21 21-4.3-4.3" />
-              </svg>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 56,
+                  height: 56,
+                  borderRadius: 12,
+                  background: 'linear-gradient(135deg, #238636, #2ea043)',
+                  marginRight: 16,
+                }}
+              >
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                  <circle cx="11" cy="11" r="8" />
+                  <path d="m21 21-4.3-4.3" />
+                </svg>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ fontSize: 28, fontWeight: 700, color: text }}>{repoFullName}</span>
+                <span style={{ fontSize: 16, color: muted }}>Code Statistics via RepoLens</span>
+              </div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 28, fontWeight: 700, color: text }}>{repoFullName}</span>
-              <span style={{ fontSize: 16, color: muted }}>Code Statistics via RepoLens</span>
-            </div>
-          </div>
+          )}
 
           {/* Stats Grid */}
           <div
@@ -212,6 +218,7 @@ export async function GET(request: NextRequest) {
               display: 'flex',
               flexDirection: 'row',
               gap: 24,
+              justifyContent: hideRepoName ? 'center' : 'flex-start',
             }}
           >
             {stats.map((stat) => (
@@ -237,7 +244,7 @@ export async function GET(request: NextRequest) {
       ),
       {
         width: 720,
-        height: 260,
+        height: imageHeight,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
         },

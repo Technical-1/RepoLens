@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
   const repo = searchParams.get('repo')
   const theme = searchParams.get('theme') || 'dark'
   const limit = Math.min(parseInt(searchParams.get('limit') || '6'), 10)
+  const hideRepoName = searchParams.get('hideRepoName') === 'true'
 
   if (!owner || !repo) {
     return new Response('Missing owner or repo parameter', { status: 400 })
@@ -111,6 +112,8 @@ export async function GET(request: NextRequest) {
     const cardBg = isDark ? '#161b22' : '#f6f8fa'
     const border = isDark ? '#30363d' : '#d0d7de'
 
+    const imageHeight = hideRepoName ? 200 : 240
+
     return new ImageResponse(
       (
         <div
@@ -120,37 +123,40 @@ export async function GET(request: NextRequest) {
             width: '100%',
             height: '100%',
             backgroundColor: bg,
-            padding: 40,
+            padding: hideRepoName ? 30 : 40,
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
             border: `2px solid ${border}`,
             borderRadius: 16,
+            justifyContent: hideRepoName ? 'center' : 'flex-start',
           }}
         >
           {/* Header */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              marginBottom: 24,
-            }}
-          >
-            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  width: 16,
-                  height: 16,
-                  borderRadius: 8,
-                  background: 'linear-gradient(135deg, #58a6ff, #a371f7)',
-                  marginRight: 12,
-                }}
-              />
-              <span style={{ fontSize: 24, fontWeight: 700, color: text }}>Languages</span>
+          {!hideRepoName && (
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 24,
+              }}
+            >
+              <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    background: 'linear-gradient(135deg, #58a6ff, #a371f7)',
+                    marginRight: 12,
+                  }}
+                />
+                <span style={{ fontSize: 24, fontWeight: 700, color: text }}>Languages</span>
+              </div>
+              <span style={{ fontSize: 16, color: muted }}>{repoFullName}</span>
             </div>
-            <span style={{ fontSize: 16, color: muted }}>{repoFullName}</span>
-          </div>
+          )}
 
           {/* Language Bar */}
           <div
@@ -218,7 +224,7 @@ export async function GET(request: NextRequest) {
       ),
       {
         width: 700,
-        height: 240,
+        height: imageHeight,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',
         },

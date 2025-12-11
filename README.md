@@ -1,6 +1,8 @@
 # RepoLens - GitHub Repository Stats Analyzer
 
-A modern, Vercel-ready web application that analyzes any GitHub repository and provides detailed statistics including lines of code, language breakdown, commit history, and contributor information.
+---
+
+Analyze GitHub repositories with beautiful visualizations. View language breakdowns, commit history, code frequency, contributors, and generate embeddable stats widgets for your README.
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
 ![React 19](https://img.shields.io/badge/React-19-blue)
@@ -9,13 +11,48 @@ A modern, Vercel-ready web application that analyzes any GitHub repository and p
 
 ## Features
 
-- **📊 Repository Statistics**: Total lines of code, additions, deletions, stars, forks, and more
-- **🌈 Language Breakdown**: Visual breakdown of all programming languages used with percentages
-- **📝 Commit History**: Detailed commit log with author info, changes, and timestamps
-- **📈 Code Frequency Chart**: Interactive visualization of code changes over time
-- **👥 Contributors List**: Top contributors with their contribution stats
-- **🔐 GitHub OAuth**: Sign in to access private repositories and higher API limits
-- **🛡️ Privacy First**: No credentials stored - all auth happens directly with GitHub
+- **Repository Statistics**: Total lines of code, additions, deletions, stars, forks, and more
+- **Language Breakdown**: Visual breakdown of all programming languages used with percentages
+- **Commit History**: Detailed commit log with author info, changes, and timestamps
+- **Code Frequency Chart**: Interactive visualization of code changes over time
+- **Contributors List**: Top contributors with their contribution stats
+- **Embeddable Widgets**: Generate SVG images for your README to showcase repo stats
+- **GitHub OAuth**: Sign in to access private repositories and higher API limits
+- **Privacy First**: No credentials stored - all auth happens directly with GitHub
+
+## Embeddable Widgets
+
+RepoLens generates beautiful SVG widgets you can embed directly in your GitHub README. Available widgets:
+
+### Stats Overview
+Shows stars, forks, watchers, and open issues.
+```markdown
+![Stats](https://repolens.io/api/embed/stats?owner=OWNER&repo=REPO)
+```
+
+### Language Breakdown
+Displays the top programming languages used in the repository.
+```markdown
+![Languages](https://repolens.io/api/embed/languages?owner=OWNER&repo=REPO)
+```
+
+### Code Statistics
+Shows total lines, lines added, lines removed, and commit count.
+```markdown
+![Code Stats](https://repolens.io/api/embed/code-stats?owner=OWNER&repo=REPO)
+```
+
+### Customization
+All widgets support a `theme` parameter:
+- `?theme=dark` (default) - Dark background
+- `?theme=light` - Light background
+
+Example with light theme:
+```markdown
+![Stats](https://repolens.io/api/embed/stats?owner=facebook&repo=react&theme=light)
+```
+
+Widgets are cached for 1 hour on CDN to ensure fast loading and reduce API usage.
 
 ## Privacy & Security
 
@@ -27,7 +64,7 @@ A modern, Vercel-ready web application that analyzes any GitHub repository and p
 - All API calls go directly to GitHub
 - Sign out anytime to revoke access
 
-## Getting Started
+## Host It Yourself
 
 ### Prerequisites
 
@@ -38,7 +75,7 @@ A modern, Vercel-ready web application that analyzes any GitHub repository and p
 ### 1. Create a GitHub OAuth App
 
 1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
-2. Click "OAuth Apps" → "New OAuth App"
+2. Click "OAuth Apps" then "New OAuth App"
 3. Fill in the details:
    - **Application name**: RepoLens (or your preferred name)
    - **Homepage URL**: `http://localhost:3000` (for development)
@@ -50,8 +87,8 @@ A modern, Vercel-ready web application that analyzes any GitHub repository and p
 ### 2. Clone and Install
 
 ```bash
-git clone <your-repo-url>
-cd github-stats-app
+git clone https://github.com/Technical-1/RepoLens.git
+cd repolens
 npm install
 ```
 
@@ -78,74 +115,89 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Deploying to Vercel
+### Deploying
 
-### One-Click Deploy
+You can deploy RepoLens to any hosting service that supports Next.js, including Vercel, Netlify, Railway, Render, or your own server.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/your-repo-url)
-
-### Manual Deploy
+**Example: Deploying to Vercel**
 
 1. Push your code to GitHub
 2. Import the project in [Vercel Dashboard](https://vercel.com/new)
-3. Add environment variables in Vercel:
+3. Add environment variables:
    - `AUTH_GITHUB_ID`
    - `AUTH_GITHUB_SECRET`
    - `AUTH_SECRET`
-4. **Update your GitHub OAuth App** callback URL to:
+4. Update your GitHub OAuth App callback URL to:
    ```
-   https://your-vercel-domain.vercel.app/api/auth/callback/github
+   https://your-domain.com/api/auth/callback/github
    ```
 
 ## Tech Stack
 
-- **Framework**: [Next.js 15](https://nextjs.org/) with App Router
-- **UI Library**: [React 19](https://react.dev/)
-- **Authentication**: [Auth.js v5](https://authjs.dev/) (NextAuth)
-- **GitHub API**: [@octokit/rest](https://github.com/octokit/rest.js)
-- **Styling**: [Tailwind CSS 3.4](https://tailwindcss.com/)
-- **Charts**: [Recharts](https://recharts.org/)
-- **Icons**: [Lucide React](https://lucide.dev/)
-- **Language**: [TypeScript 5.7](https://www.typescriptlang.org/)
+| Category | Technology |
+|----------|------------|
+| Framework | [Next.js 15](https://nextjs.org/) with App Router |
+| UI Library | [React 19](https://react.dev/) |
+| Authentication | [Auth.js v5](https://authjs.dev/) (NextAuth) |
+| GitHub API | [@octokit/rest](https://github.com/octokit/rest.js) |
+| Styling | [Tailwind CSS 3.4](https://tailwindcss.com/) |
+| Charts | [Recharts](https://recharts.org/) |
+| Icons | [Lucide React](https://lucide.dev/) |
+| Language | [TypeScript 5.7](https://www.typescriptlang.org/) |
+| Image Generation | [next/og](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/opengraph-image) (Satori) |
 
 ## API Rate Limits
 
-| Authentication | Rate Limit |
-|---------------|------------|
-| Unauthenticated | 60 requests/hour |
-| Authenticated (OAuth) | 5,000 requests/hour |
-| GitHub Enterprise | 15,000 requests/hour |
+| Authentication | Rate Limit | Caching |
+|----------------|------------|---------|
+| Unauthenticated | 60 requests/hour | 10-minute server cache |
+| Authenticated (OAuth) | 5,000 requests/hour | No server cache |
+| Embed Widgets | Uses unauthenticated | 1-hour CDN cache |
 
 Sign in with GitHub to get higher rate limits for analyzing large repositories.
+
+**Caching Strategy:**
+- Unauthenticated requests are cached server-side for 10 minutes to reduce API pressure
+- Embed widgets are cached at the CDN edge for 1 hour
+- User repository lists are cached client-side for 5 minutes
+- Code frequency polling uses exponential backoff (3s, 6s, 12s, 24s, 48s) to avoid rate limits
 
 ## Project Structure
 
 ```
-github-stats-app/
+repolens/
 ├── src/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── auth/[...nextauth]/route.ts  # Auth handlers
-│   │   │   ├── repo/route.ts                # Repo analysis endpoint
+│   │   │   ├── embed/
+│   │   │   │   ├── stats/route.tsx          # Stats widget image
+│   │   │   │   ├── languages/route.tsx      # Languages widget image
+│   │   │   │   └── code-stats/route.tsx     # Code stats widget image
+│   │   │   ├── repo/
+│   │   │   │   ├── route.ts                 # Main repo analysis
+│   │   │   │   └── stats/route.ts           # Stats polling endpoint
 │   │   │   └── user/repos/route.ts          # User repos endpoint
-│   │   ├── globals.css                      # Global styles
-│   │   ├── layout.tsx                       # Root layout
-│   │   └── page.tsx                         # Main page
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   └── page.tsx
 │   ├── components/
-│   │   ├── Header.tsx                       # Navigation header
-│   │   ├── RepoInput.tsx                    # URL input form
-│   │   ├── StatsOverview.tsx                # Stats cards
-│   │   ├── LanguageBreakdown.tsx            # Language chart
-│   │   ├── CommitHistory.tsx                # Commit list
-│   │   ├── CodeFrequencyChart.tsx           # Line chart
-│   │   ├── ContributorsList.tsx             # Contributors
-│   │   ├── UserReposList.tsx                # User's repos
-│   │   └── PrivacyNotice.tsx                # Privacy info
+│   │   ├── Header.tsx
+│   │   ├── RepoInput.tsx
+│   │   ├── StatsOverview.tsx
+│   │   ├── LanguageBreakdown.tsx
+│   │   ├── CommitHistory.tsx
+│   │   ├── CodeFrequencyChart.tsx
+│   │   ├── ContributorsList.tsx
+│   │   ├── UserReposList.tsx
+│   │   ├── EmbedShare.tsx
+│   │   ├── ParticleBackground.tsx
+│   │   └── PrivacyNotice.tsx
 │   ├── lib/
-│   │   └── github.ts                        # GitHub API utilities
+│   │   └── github.ts
 │   ├── types/
-│   │   └── index.ts                         # TypeScript types
-│   └── auth.ts                              # Auth configuration
+│   │   └── index.ts
+│   └── auth.ts
 ├── tailwind.config.ts
 ├── next.config.ts
 ├── package.json
@@ -157,6 +209,7 @@ github-stats-app/
 - **10,000 commit limit**: GitHub's statistics API doesn't work for repos with 10,000+ commits
 - **Rate limiting**: Heavy use may hit GitHub API limits (sign in for higher limits)
 - **Stats computation**: Some statistics may take time to compute for new/updated repos
+- **Embed widgets**: Only works for public repositories
 
 ## Contributing
 
@@ -164,8 +217,8 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
 
-MIT License - feel free to use this project for personal or commercial purposes.
+This project is available for personal use only. Commercial use is not permitted without explicit permission.
 
 ---
 
-Built with ❤️ using Next.js 15 and the GitHub API
+Built with Next.js 15 and the GitHub API
