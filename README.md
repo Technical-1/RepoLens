@@ -24,23 +24,26 @@ Analyze GitHub repositories with beautiful visualizations. View language breakdo
 
 RepoLens generates beautiful SVG widgets you can embed directly in your GitHub README. Available widgets:
 
+### Code Statistics
+Shows total lines, lines added, lines removed, and commit count.
+<br><br>
+<a href="https://repolens.io/?repo=Technical-1/RepoLens">
+  <img src="https://repolens.io/api/embed/code-stats?owner=Technical-1&repo=RepoLens&theme=dark" width="400" alt="RepoLens languages">
+</a><br>
+
 ### Stats Overview
 Shows stars, forks, watchers, and open issues.
-```markdown
-![Stats](https://repolens.io/api/embed/stats?owner=OWNER&repo=REPO)
-```
+<br><br>
+<a href="https://repolens.io/?repo=Technical-1/RepoLens">
+  <img src="https://repolens.io/api/embed/stats?owner=Technical-1&repo=RepoLens&theme=dark" width="400" alt="RepoLens languages">
+</a><br>
 
 ### Language Breakdown
 Displays the top programming languages used in the repository.
-```markdown
-![Languages](https://repolens.io/api/embed/languages?owner=OWNER&repo=REPO)
-```
-
-### Code Statistics
-Shows total lines, lines added, lines removed, and commit count.
-```markdown
-![Code Stats](https://repolens.io/api/embed/code-stats?owner=OWNER&repo=REPO)
-```
+<br><br>
+<a href="https://repolens.io/?repo=Technical-1/RepoLens">
+  <img src="https://repolens.io/api/embed/languages?owner=Technical-1&repo=RepoLens&theme=dark" width="400" alt="RepoLens languages">
+</a><br>
 
 ### Customization
 All widgets support a `theme` parameter:
@@ -48,9 +51,10 @@ All widgets support a `theme` parameter:
 - `?theme=light` - Light background
 
 Example with light theme:
-```markdown
-![Stats](https://repolens.io/api/embed/stats?owner=facebook&repo=react&theme=light)
-```
+<br><br>
+<a href="https://repolens.io/?repo=Technical-1/RepoLens">
+  <img src="https://repolens.io/api/embed/stats?owner=facebook&repo=react&theme=light" width="400" alt="RepoLens languages">
+</a><br>
 
 Widgets are cached for 1 hour on CDN to ensure fast loading and reduce API usage.
 
