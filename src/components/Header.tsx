@@ -3,6 +3,7 @@
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { Github, LogIn, LogOut, Loader2 } from 'lucide-react'
 import Image from 'next/image'
+import Link from 'next/link'
 
 export default function Header() {
   const { data: session, status } = useSession()
@@ -12,7 +13,7 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-github-accent to-green-400 flex items-center justify-center">
               <Github className="w-6 h-6 text-white" />
             </div>
@@ -20,7 +21,7 @@ export default function Header() {
               <h1 className="text-xl font-bold text-white">RepoLens</h1>
               <p className="text-xs text-github-muted -mt-0.5">GitHub Stats Analyzer</p>
             </div>
-          </div>
+          </Link>
 
           {/* Auth */}
           <div className="flex items-center gap-4">
