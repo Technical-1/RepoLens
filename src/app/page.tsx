@@ -31,6 +31,9 @@ export default function Home() {
   const [showSearch, setShowSearch] = useState(false)
   const [showEmbed, setShowEmbed] = useState(false)
   const initialLoadDone = useRef(false)
+  
+  // Get initial repo from URL param for pre-filling input
+  const initialRepoParam = searchParams.get('repo') || ''
 
   // Cached user repos state
   const [userRepos, setUserRepos] = useState<UserRepo[]>([])
@@ -227,7 +230,7 @@ export default function Home() {
                   </button>
                   <span className="text-github-muted">Search any repository</span>
                 </div>
-                <RepoInput onAnalyze={analyzeRepo} isLoading={loading} error={error} />
+                <RepoInput onAnalyze={analyzeRepo} isLoading={loading} error={error} initialValue={initialRepoParam} />
               </div>
             )}
 
@@ -287,7 +290,7 @@ export default function Home() {
           </div>
 
           {/* Repo Input */}
-          <RepoInput onAnalyze={analyzeRepo} isLoading={loading} error={error} />
+          <RepoInput onAnalyze={analyzeRepo} isLoading={loading} error={error} initialValue={initialRepoParam} />
 
           {/* Auth Required Message */}
           {requiresAuth && !session && (

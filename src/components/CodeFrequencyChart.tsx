@@ -21,9 +21,10 @@ interface CodeFrequencyChartProps {
 export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
   const [localData, setLocalData] = useState<CodeFrequency[]>(data.codeFrequency)
   const [isPolling, setIsPolling] = useState(false)
+  const [pollError, setPollError] = useState(false)
   const pollCountRef = useRef(0)
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const maxPolls = 6 // Poll up to 6 times (30 seconds total)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const maxPolls = 5 // Poll up to 5 times with backoff
 
   // Extract owner/repo from the URL
   const repoUrl = data.repo.url
@@ -37,10 +38,16 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
       return
     }
 
-    // Start polling
-    setIsPolling(true)
+    // Progressive backoff intervals: 3s, 6s, 12s, 24s, 48s (total ~93s)
+    const getBackoffDelay = (attempt: number) => {
+      const baseDelay = 3000
+      return baseDelay * Math.pow(2, attempt)
+    }
 
     const poll = async () => {
+      setIsPolling(true)
+      setPollError(false)
+      
       try {
         const res = await fetch('/api/repo/stats', {
           method: 'POST',
@@ -53,36 +60,41 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
           if (result.data && result.data.length > 0) {
             setLocalData(result.data)
             setIsPolling(false)
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current)
-            }
             return
           }
+        } else if (res.status === 500) {
+          // Server error - likely rate limited, use longer backoff
+          setPollError(true)
         }
 
         pollCountRef.current += 1
-        if (pollCountRef.current >= maxPolls) {
+        if (pollCountRef.current < maxPolls) {
+          // Schedule next poll with exponential backoff
+          const delay = getBackoffDelay(pollCountRef.current)
+          timeoutRef.current = setTimeout(poll, delay)
+        } else {
           setIsPolling(false)
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current)
-          }
         }
       } catch {
-        // Silently fail and continue polling
+        // Network error - try again with backoff
+        pollCountRef.current += 1
+        if (pollCountRef.current < maxPolls) {
+          const delay = getBackoffDelay(pollCountRef.current)
+          timeoutRef.current = setTimeout(poll, delay)
+        } else {
+          setIsPolling(false)
+          setPollError(true)
+        }
       }
     }
 
-    // Poll every 5 seconds
-    pollIntervalRef.current = setInterval(poll, 5000)
-
     // Initial poll after 3 seconds
-    const initialTimeout = setTimeout(poll, 3000)
+    timeoutRef.current = setTimeout(poll, 3000)
 
     return () => {
-      if (pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
       }
-      clearTimeout(initialTimeout)
     }
   }, [localData.length, owner, repo])
 

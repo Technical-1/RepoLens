@@ -7,10 +7,11 @@ interface RepoInputProps {
   onAnalyze: (url: string) => void
   isLoading: boolean
   error?: string | null
+  initialValue?: string
 }
 
-export default function RepoInput({ onAnalyze, isLoading, error }: RepoInputProps) {
-  const [url, setUrl] = useState('')
+export default function RepoInput({ onAnalyze, isLoading, error, initialValue = '' }: RepoInputProps) {
+  const [url, setUrl] = useState(initialValue)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
