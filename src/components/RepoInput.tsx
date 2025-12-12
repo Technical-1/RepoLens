@@ -38,7 +38,7 @@ export default function RepoInput({ onAnalyze, isLoading, error, initialValue = 
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
-            placeholder="Paste a GitHub repo URL (e.g., github.com/owner/repo)"
+            placeholder="Paste a GitHub repo URL"
             className="w-full pl-12 pr-32 py-4 bg-github-card border border-github-border rounded-xl text-github-text placeholder:text-github-muted/60 focus:border-github-accent transition-colors text-lg"
             disabled={isLoading}
           />
