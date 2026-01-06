@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Star, Lock, Globe, Search, Loader2, GitFork, RefreshCw } from 'lucide-react'
 import type { UserRepo } from '@/types'
 import { LANGUAGE_COLORS } from '@/types'
+import { formatRelativeDateWithPrefix } from '@/lib/format'
 
 interface UserReposListProps {
   repos: UserRepo[]
@@ -33,20 +34,6 @@ export default function UserReposList({
       (filter === 'private' && repo.private)
     return matchesSearch && matchesFilter
   })
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInDays = Math.floor(
-      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
-    )
-
-    if (diffInDays === 0) return 'Updated today'
-    if (diffInDays === 1) return 'Updated yesterday'
-    if (diffInDays < 7) return `Updated ${diffInDays} days ago`
-    if (diffInDays < 30) return `Updated ${Math.floor(diffInDays / 7)} weeks ago`
-    return `Updated ${Math.floor(diffInDays / 30)} months ago`
-  }
 
   if (loading && repos.length === 0) {
     return (
@@ -179,7 +166,7 @@ export default function UserReposList({
                         <Star className="w-3.5 h-3.5" />
                         {repo.stars}
                       </span>
-                      <span>{formatDate(repo.updatedAt)}</span>
+                      <span>{formatRelativeDateWithPrefix(repo.updatedAt)}</span>
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-github-muted">

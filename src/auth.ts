@@ -21,8 +21,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token
     },
     async session({ session, token }) {
-      // @ts-expect-error - accessToken is added dynamically
-      session.accessToken = token.accessToken
+      session.accessToken = token.accessToken as string | undefined
       return session
     },
   },

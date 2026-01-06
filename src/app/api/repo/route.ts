@@ -1,54 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
 import { analyzeRepo } from '@/lib/github'
-
-// Simple in-memory cache for unauthenticated requests
-// This helps reduce API calls when multiple users analyze the same repo
-const cache = new Map<string, { data: unknown; timestamp: number }>()
-const CACHE_TTL = 10 * 60 * 1000 // 10 minutes in milliseconds
-const MAX_CACHE_SIZE = 100 // Limit cache size to prevent memory issues
-
-function cleanupCache() {
-  const now = Date.now()
-  for (const [key, value] of cache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      cache.delete(key)
-    }
-  }
-  // If still too large, remove oldest entries
-  if (cache.size > MAX_CACHE_SIZE) {
-    const entries = [...cache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)
-    const toRemove = entries.slice(0, cache.size - MAX_CACHE_SIZE)
-    toRemove.forEach(([key]) => cache.delete(key))
-  }
-}
+import { repoCache } from '@/lib/cache'
+import { RepoRequestSchema, formatZodError } from '@/lib/validations'
 
 export async function POST(request: NextRequest) {
   try {
     const session = await auth()
-    const { repoUrl } = await request.json()
+    const body = await request.json()
 
-    // @ts-expect-error - accessToken is added dynamically
-    const accessToken = session?.accessToken as string | undefined
+    // Validate request body
+    const validation = RepoRequestSchema.safeParse(body)
+    if (!validation.success) {
+      return NextResponse.json(
+        { error: formatZodError(validation.error) },
+        { status: 400 }
+      )
+    }
+
+    const { repoUrl } = validation.data
+    const accessToken = session?.accessToken
     
     // For unauthenticated requests, check cache first
     if (!accessToken) {
       const cacheKey = repoUrl.toLowerCase().trim()
-      const cached = cache.get(cacheKey)
+      const cached = repoCache.get(cacheKey)
       
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      if (cached) {
         console.log(`Cache hit for: ${cacheKey}`)
         return NextResponse.json(cached.data, {
           headers: {
             'X-Cache': 'HIT',
-            'X-Cache-Age': String(Math.floor((Date.now() - cached.timestamp) / 1000)),
+            'X-Cache-Age': String(Math.floor(cached.age / 1000)),
           },
         })
-      }
-      
-      // Clean up old entries periodically
-      if (cache.size > 0) {
-        cleanupCache()
       }
     }
 
@@ -61,8 +46,8 @@ export async function POST(request: NextRequest) {
     // Cache successful results for unauthenticated requests
     if (!accessToken) {
       const cacheKey = repoUrl.toLowerCase().trim()
-      cache.set(cacheKey, { data: result, timestamp: Date.now() })
-      console.log(`Cached result for: ${cacheKey} (cache size: ${cache.size})`)
+      repoCache.set(cacheKey, result)
+      console.log(`Cached result for: ${cacheKey} (cache size: ${repoCache.size()})`)
       
       return NextResponse.json(result, {
         headers: {

@@ -12,6 +12,125 @@ import type {
 // Import language colors
 import { LANGUAGE_COLORS as langColors } from "@/types"
 
+// Cloudflare Worker proxy for authenticated GitHub API calls
+// This provides 5,000/hr rate limits for unauthenticated users
+const GITHUB_PROXY_URL = process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
+
+// Server-side header for proxy authentication (matches worker config)
+const SERVER_SECRET_HEADER = 'X-RepoLens-Server'
+const SERVER_SECRET_VALUE = 'repolens-server-request'
+
+/**
+ * Helper to make proxied GraphQL requests (for unauthenticated users)
+ */
+async function fetchGraphQLViaProxy(query: string, variables: Record<string, unknown>): Promise<unknown> {
+  if (!GITHUB_PROXY_URL) {
+    throw new Error('No proxy configured')
+  }
+  
+  const response = await fetch(`${GITHUB_PROXY_URL}/github/graphql`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      [SERVER_SECRET_HEADER]: SERVER_SECRET_VALUE,
+    },
+    body: JSON.stringify({ query, variables }),
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Proxy request failed: ${response.status}`)
+  }
+  
+  return response.json()
+}
+
+/**
+ * Helper to make proxied REST requests (for unauthenticated users)
+ * Used for endpoints that don't have GraphQL equivalents
+ */
+async function fetchRESTViaProxy<T = unknown>(path: string): Promise<{ data: T; headers: Headers }> {
+  if (!GITHUB_PROXY_URL) {
+    throw new Error('No proxy configured')
+  }
+  
+  const response = await fetch(`${GITHUB_PROXY_URL}/github${path}`, {
+    headers: {
+      'Accept': 'application/json',
+      [SERVER_SECRET_HEADER]: SERVER_SECRET_VALUE,
+    },
+  })
+  
+  if (!response.ok) {
+    throw new Error(`Proxy request failed: ${response.status}`)
+  }
+  
+  const data = await response.json() as T
+  return { data, headers: response.headers }
+}
+
+// Export for potential future use
+export { fetchRESTViaProxy }
+
+// GraphQL query for fetching commits with stats in a single request
+const COMMITS_QUERY = `
+  query($owner: String!, $repo: String!, $first: Int!) {
+    repository(owner: $owner, name: $repo) {
+      defaultBranchRef {
+        target {
+          ... on Commit {
+            history(first: $first) {
+              totalCount
+              nodes {
+                oid
+                message
+                committedDate
+                author {
+                  name
+                  avatarUrl
+                }
+                additions
+                deletions
+                changedFilesIfAvailable
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+interface GraphQLCommitNode {
+  oid: string
+  message: string
+  committedDate: string
+  author: {
+    name: string | null
+    avatarUrl: string | null
+  } | null
+  additions: number
+  deletions: number
+  changedFilesIfAvailable: number | null
+}
+
+interface GraphQLResponse {
+  repository: {
+    defaultBranchRef: {
+      target: {
+        history: {
+          totalCount: number
+          nodes: GraphQLCommitNode[]
+        }
+      }
+    } | null
+  }
+}
+
+interface CommitsResult {
+  commits: CommitStats[]
+  totalCount: number
+}
+
 export function parseRepoUrl(url: string): { owner: string; repo: string } | null {
   // Handle various GitHub URL formats
   const patterns = [
@@ -31,9 +150,18 @@ export function parseRepoUrl(url: string): { owner: string; repo: string } | nul
 export async function getRepoInfo(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
+  useProxy: boolean = false
 ): Promise<RepoStats> {
-  const { data } = await octokit.repos.get({ owner, repo })
+  let data: any
+  
+  if (useProxy && GITHUB_PROXY_URL) {
+    const result = await fetchRESTViaProxy<any>(`/repos/${owner}/${repo}`)
+    data = result.data
+  } else {
+    const response = await octokit.repos.get({ owner, repo })
+    data = response.data
+  }
 
   return {
     name: data.name,
@@ -56,102 +184,420 @@ export async function getRepoInfo(
 export async function getLanguages(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
+  useProxy: boolean = false
 ): Promise<LanguageStats> {
+  if (useProxy && GITHUB_PROXY_URL) {
+    const result = await fetchRESTViaProxy<LanguageStats>(`/repos/${owner}/${repo}/languages`)
+    return result.data
+  }
+  
   const { data } = await octokit.repos.listLanguages({ owner, repo })
   return data
 }
 
+/**
+ * Fetch commits using GraphQL API - reduces 51 API calls to just 1
+ * Returns both commits and the total count (for accurate display)
+ * 
+ * For unauthenticated users, uses the Cloudflare proxy for better rate limits
+ */
+export async function getCommitsGraphQL(
+  accessToken: string | undefined,
+  owner: string,
+  repo: string,
+  count: number = 100 // GraphQL max is 100 per request
+): Promise<CommitsResult> {
+  try {
+    let json: { data?: GraphQLResponse; errors?: Array<{ message: string }> }
+    
+    // Use proxy for unauthenticated requests if available
+    if (!accessToken && GITHUB_PROXY_URL) {
+      json = await fetchGraphQLViaProxy(COMMITS_QUERY, { owner, repo, first: count }) as typeof json
+    } else {
+      // Direct GitHub API call (for authenticated users or when no proxy)
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      }
+      
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`
+      }
+
+      const response = await fetch('https://api.github.com/graphql', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          query: COMMITS_QUERY,
+          variables: { owner, repo, first: count },
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`GraphQL request failed: ${response.status}`)
+      }
+
+      json = await response.json()
+    }
+    
+    if (json.errors) {
+      console.error('GraphQL errors:', json.errors)
+      throw new Error(json.errors[0]?.message || 'GraphQL error')
+    }
+
+    const data = json.data as GraphQLResponse
+    const history = data?.repository?.defaultBranchRef?.target?.history
+    const nodes = history?.nodes
+    const totalCount = history?.totalCount || 0
+
+    if (!nodes || !Array.isArray(nodes)) {
+      return { commits: [], totalCount: 0 }
+    }
+
+    const commits = nodes.map((node) => ({
+      sha: node.oid,
+      message: node.message.split('\n')[0],
+      author: node.author?.name || 'Unknown',
+      authorAvatar: node.author?.avatarUrl || '',
+      date: node.committedDate,
+      additions: node.additions || 0,
+      deletions: node.deletions || 0,
+      files: node.changedFilesIfAvailable || 0,
+    }))
+
+    return { commits, totalCount }
+  } catch (error) {
+    console.error('Error fetching commits via GraphQL:', error)
+    return { commits: [], totalCount: 0 }
+  }
+}
+
+/**
+ * Fallback: Fetch commits using REST API (slower, more API calls)
+ * This is used when GraphQL fails
+ * 
+ * Note: Each commit detail requires 1 API call
+ * Uses proxy for unauthenticated requests
+ */
+export async function getCommitsREST(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  maxCommits: number = 100, // Reduced to avoid too many API calls
+  useProxy: boolean = false
+): Promise<CommitStats[]> {
+  try {
+    interface CommitListItem {
+      sha: string
+      commit: { message: string; author: { name?: string; date?: string } | null }
+      author: { avatar_url?: string } | null
+    }
+    interface CommitDetail {
+      stats?: { additions?: number; deletions?: number }
+      files?: Array<unknown>
+    }
+    
+    let allCommits: CommitListItem[] = []
+    let page = 1
+    const perPage = 100
+
+    // Fetch commit list (may need multiple pages)
+    while (allCommits.length < maxCommits) {
+      let pageCommits: CommitListItem[]
+      
+      if (useProxy && GITHUB_PROXY_URL) {
+        const result = await fetchRESTViaProxy<CommitListItem[]>(
+          `/repos/${owner}/${repo}/commits?per_page=${perPage}&page=${page}`
+        )
+        pageCommits = result.data
+      } else {
+        const { data } = await octokit.repos.listCommits({
+          owner,
+          repo,
+          per_page: perPage,
+          page,
+        })
+        pageCommits = data
+      }
+
+      if (pageCommits.length === 0) break
+      allCommits = allCommits.concat(pageCommits)
+      
+      if (pageCommits.length < perPage) break // No more pages
+      page++
+      if (page > 2) break // Max 2 pages
+    }
+
+    // Trim to maxCommits
+    const commitList = allCommits.slice(0, maxCommits)
+
+    if (commitList.length === 0) {
+      console.log('No commits found in repository')
+      return []
+    }
+
+    console.log(`Fetching details for ${commitList.length} commits via ${useProxy ? 'proxy' : 'direct'}...`)
+
+    // Get detailed info for each commit (in batches to avoid overwhelming the API)
+    const batchSize = 10
+    const detailedCommits: CommitStats[] = []
+    
+    for (let i = 0; i < commitList.length; i += batchSize) {
+      const batch = commitList.slice(i, i + batchSize)
+      const batchResults = await Promise.all(
+        batch.map(async (commit) => {
+          try {
+            let detail: CommitDetail
+            
+            if (useProxy && GITHUB_PROXY_URL) {
+              const result = await fetchRESTViaProxy<CommitDetail>(
+                `/repos/${owner}/${repo}/commits/${commit.sha}`
+              )
+              detail = result.data
+            } else {
+              const { data } = await octokit.repos.getCommit({
+                owner,
+                repo,
+                ref: commit.sha,
+              })
+              detail = data
+            }
+
+            return {
+              sha: commit.sha,
+              message: commit.commit.message.split('\n')[0],
+              author: commit.commit.author?.name || 'Unknown',
+              authorAvatar: commit.author?.avatar_url || '',
+              date: commit.commit.author?.date || '',
+              additions: detail.stats?.additions || 0,
+              deletions: detail.stats?.deletions || 0,
+              files: detail.files?.length || 0,
+            }
+          } catch (error) {
+            console.warn(`Failed to get details for commit ${commit.sha}:`, error)
+            return {
+              sha: commit.sha,
+              message: commit.commit.message.split('\n')[0],
+              author: commit.commit.author?.name || 'Unknown',
+              authorAvatar: commit.author?.avatar_url || '',
+              date: commit.commit.author?.date || '',
+              additions: 0,
+              deletions: 0,
+              files: 0,
+            }
+          }
+        })
+      )
+      detailedCommits.push(...batchResults)
+    }
+
+    return detailedCommits
+  } catch (error) {
+    console.error('Error fetching commits via REST:', error)
+    return []
+  }
+}
+
+/**
+ * Get total commit count using REST API pagination trick
+ * Fetches page 1 with per_page=1 and checks the Link header for last page
+ */
+async function getTotalCommitCount(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  useProxy: boolean = false
+): Promise<number> {
+  try {
+    if (useProxy && GITHUB_PROXY_URL) {
+      // Use proxy - check for Link header in response
+      const result = await fetchRESTViaProxy<unknown[]>(
+        `/repos/${owner}/${repo}/commits?per_page=1`
+      )
+      // The Link header should be passed through by the proxy
+      // For now, we'll rely on GraphQL totalCount instead
+      return result.data.length || 0
+    }
+    
+    // Request just 1 commit to get pagination info
+    const response = await octokit.repos.listCommits({
+      owner,
+      repo,
+      per_page: 1,
+    })
+    
+    // Check for Link header with last page info
+    const linkHeader = response.headers.link
+    if (linkHeader) {
+      // Parse: <...?page=1234>; rel="last"
+      const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/)
+      if (lastMatch) {
+        return parseInt(lastMatch[1], 10)
+      }
+    }
+    
+    // If no pagination (small repo), return the length
+    return response.data.length
+  } catch (error) {
+    console.warn('Could not get total commit count:', error)
+    return 0
+  }
+}
+
+/**
+ * Fetch commits - tries GraphQL first, falls back to REST
+ * Returns commits and total count for accurate display
+ * 
+ * For authenticated users: Uses direct GraphQL
+ * For unauthenticated users: Uses proxy (if available) or falls back to REST
+ */
 export async function getCommits(
   octokit: Octokit,
   owner: string,
   repo: string,
-  perPage: number = 100
-): Promise<CommitStats[]> {
-  try {
-    // Get list of commits
-    const { data: commitList } = await octokit.repos.listCommits({
-      owner,
-      repo,
-      per_page: Math.min(perPage, 100),
-    })
-
-    // Get detailed info for each commit (limited to avoid rate limits)
-    const detailedCommits = await Promise.all(
-      commitList.slice(0, 50).map(async (commit) => {
-        try {
-          const { data: detail } = await octokit.repos.getCommit({
-            owner,
-            repo,
-            ref: commit.sha,
-          })
-
-          return {
-            sha: commit.sha,
-            message: commit.commit.message.split('\n')[0],
-            author: commit.commit.author?.name || 'Unknown',
-            authorAvatar: commit.author?.avatar_url || '',
-            date: commit.commit.author?.date || '',
-            additions: detail.stats?.additions || 0,
-            deletions: detail.stats?.deletions || 0,
-            files: detail.files?.length || 0,
-          }
-        } catch {
-          return {
-            sha: commit.sha,
-            message: commit.commit.message.split('\n')[0],
-            author: commit.commit.author?.name || 'Unknown',
-            authorAvatar: commit.author?.avatar_url || '',
-            date: commit.commit.author?.date || '',
-            additions: 0,
-            deletions: 0,
-            files: 0,
-          }
-        }
-      })
-    )
-
-    return detailedCommits
-  } catch (error) {
-    console.error('Error fetching commits:', error)
-    return []
+  accessToken?: string
+): Promise<CommitsResult> {
+  const useProxy = !accessToken && !!GITHUB_PROXY_URL
+  
+  // Try GraphQL first - works for authenticated users or via proxy
+  // The getCommitsGraphQL function will use the proxy for unauthenticated users
+  if (accessToken || GITHUB_PROXY_URL) {
+    const result = await getCommitsGraphQL(accessToken, owner, repo, 100) // GraphQL max is 100
+    
+    // Check if GraphQL returned valid data with actual additions/deletions
+    if (result.commits.length > 0) {
+      const hasValidStats = result.commits.some(c => c.additions > 0 || c.deletions > 0)
+      if (hasValidStats) {
+        return result
+      }
+      // If no valid stats, fall through to REST but keep the totalCount
+      console.log('GraphQL returned commits without stats, falling back to REST')
+      const restCommits = await getCommitsREST(octokit, owner, repo, 100, useProxy)
+      return { commits: restCommits, totalCount: result.totalCount }
+    }
   }
+  
+  // Fallback for unauthenticated users without proxy: use REST API
+  // Get total count and commits in parallel
+  const [totalCount, commits] = await Promise.all([
+    getTotalCommitCount(octokit, owner, repo, useProxy),
+    getCommitsREST(octokit, owner, repo, 100, useProxy),
+  ])
+  
+  return { commits, totalCount: totalCount || commits.length }
+}
+
+/**
+ * Calculate code frequency from commits (fallback for repos >10k commits)
+ * Groups commits by week and sums additions/deletions
+ */
+export function calculateCodeFrequencyFromCommits(commits: CommitStats[]): CodeFrequency[] {
+  // Group commits by week (Unix timestamp for start of week)
+  const weeklyData = new Map<number, { additions: number; deletions: number }>()
+  
+  for (const commit of commits) {
+    const date = new Date(commit.date)
+    // Get start of week (Sunday) as Unix timestamp
+    const startOfWeek = new Date(date)
+    startOfWeek.setHours(0, 0, 0, 0)
+    startOfWeek.setDate(date.getDate() - date.getDay())
+    const weekTimestamp = Math.floor(startOfWeek.getTime() / 1000)
+    
+    const existing = weeklyData.get(weekTimestamp) || { additions: 0, deletions: 0 }
+    weeklyData.set(weekTimestamp, {
+      additions: existing.additions + commit.additions,
+      deletions: existing.deletions + commit.deletions,
+    })
+  }
+  
+  // Convert to array and sort by week (oldest first)
+  return Array.from(weeklyData.entries())
+    .map(([week, data]) => ({ week, ...data }))
+    .sort((a, b) => a.week - b.week)
+}
+
+interface CodeFrequencyResult {
+  data: CodeFrequency[]
+  isCalculated: boolean
 }
 
 export async function getCodeFrequency(
   octokit: Octokit,
   owner: string,
-  repo: string
-): Promise<CodeFrequency[]> {
+  repo: string,
+  fallbackCommits?: CommitStats[],
+  useProxy: boolean = false
+): Promise<CodeFrequencyResult> {
   try {
-    const { data, status } = await octokit.repos.getCodeFrequencyStats({ owner, repo })
-
-    // GitHub returns 202 when stats are being computed - don't wait, just return empty
-    if (status === 202 || !Array.isArray(data)) {
-      return []
+    let data: number[][] | null = null
+    let status = 200
+    
+    if (useProxy && GITHUB_PROXY_URL) {
+      const result = await fetchRESTViaProxy<number[][] | Record<string, unknown>>(`/repos/${owner}/${repo}/stats/code_frequency`)
+      // GitHub returns empty object {} when computing
+      if (Array.isArray(result.data)) {
+        data = result.data
+      }
+    } else {
+      const response = await octokit.repos.getCodeFrequencyStats({ owner, repo })
+      status = response.status
+      if (Array.isArray(response.data)) {
+        data = response.data
+      }
     }
 
-    return data.map((item) => ({
-      week: item[0],
-      additions: item[1],
-      deletions: Math.abs(item[2]),
-    }))
-  } catch {
-    return []
+    // GitHub returns 202 when stats are being computed - don't wait, just return empty
+    if (status === 202 || !data || !Array.isArray(data)) {
+      return { data: [], isCalculated: false }
+    }
+
+    return {
+      data: data.map((item) => ({
+        week: item[0],
+        additions: item[1],
+        deletions: Math.abs(item[2]),
+      })),
+      isCalculated: false,
+    }
+  } catch (error) {
+    const err = error as { status?: number }
+    // 422 = Too many commits (>10k), use fallback
+    if (err.status === 422 && fallbackCommits && fallbackCommits.length > 0) {
+      console.log('Using calculated code frequency from commits (repo has >10k commits)')
+      return {
+        data: calculateCodeFrequencyFromCommits(fallbackCommits),
+        isCalculated: true,
+      }
+    }
+    // For large repos via proxy, also use fallback
+    if (fallbackCommits && fallbackCommits.length > 0) {
+      console.log('Using calculated code frequency from commits (fallback)')
+      return {
+        data: calculateCodeFrequencyFromCommits(fallbackCommits),
+        isCalculated: true,
+      }
+    }
+    return { data: [], isCalculated: false }
   }
 }
 
 export async function getContributors(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
+  useProxy: boolean = false
 ): Promise<ContributorStats[]> {
   try {
+    // Use simple contributors endpoint via proxy (more reliable)
+    if (useProxy && GITHUB_PROXY_URL) {
+      return await getContributorsFallback(octokit, owner, repo, true)
+    }
+    
     const response = await octokit.repos.getContributorsStats({ owner, repo })
 
     // GitHub returns 202 when stats are being computed - use fallback immediately
     if (response.status === 202 || !response.data || !Array.isArray(response.data)) {
-      return await getContributorsFallback(octokit, owner, repo)
+      return await getContributorsFallback(octokit, owner, repo, useProxy)
     }
 
     return response.data.map((contributor) => ({
@@ -167,7 +613,7 @@ export async function getContributors(
     }))
   } catch {
     // Try fallback on error
-    return await getContributorsFallback(octokit, owner, repo)
+    return await getContributorsFallback(octokit, owner, repo, useProxy)
   }
 }
 
@@ -175,9 +621,23 @@ export async function getContributors(
 async function getContributorsFallback(
   octokit: Octokit,
   owner: string,
-  repo: string
+  repo: string,
+  useProxy: boolean = false
 ): Promise<ContributorStats[]> {
   try {
+    if (useProxy && GITHUB_PROXY_URL) {
+      const result = await fetchRESTViaProxy<Array<{ login: string; avatar_url: string; contributions: number }>>(`/repos/${owner}/${repo}/contributors?per_page=30`)
+      if (!result.data || !Array.isArray(result.data)) {
+        return []
+      }
+      return result.data.map((contributor) => ({
+        author: contributor.login || 'Unknown',
+        avatar: contributor.avatar_url || '',
+        total: contributor.contributions,
+        weeks: [],
+      }))
+    }
+    
     const { data } = await octokit.repos.listContributors({
       owner,
       repo,
@@ -215,9 +675,12 @@ export async function analyzeRepo(
     auth: accessToken || undefined,
   })
 
+  // Use proxy for unauthenticated requests (if proxy is configured)
+  const useProxy = !accessToken && !!GITHUB_PROXY_URL
+
   try {
     // First, try to get repo info to check if it exists and if we have access
-    const repoInfo = await getRepoInfo(octokit, owner, repo)
+    const repoInfo = await getRepoInfo(octokit, owner, repo, useProxy)
 
     // If it's private and we don't have auth, return error
     if (repoInfo.private && !accessToken) {
@@ -227,13 +690,17 @@ export async function analyzeRepo(
       }
     }
 
-    // Get all stats in parallel
-    const [languages, commits, codeFrequency, contributors] = await Promise.all([
-      getLanguages(octokit, owner, repo),
-      getCommits(octokit, owner, repo),
-      getCodeFrequency(octokit, owner, repo),
-      getContributors(octokit, owner, repo),
+    // Get languages, commits, and contributors in parallel (code frequency needs commits for fallback)
+    const [languages, commitsResult, contributors] = await Promise.all([
+      getLanguages(octokit, owner, repo, useProxy),
+      getCommits(octokit, owner, repo, accessToken),
+      getContributors(octokit, owner, repo, useProxy),
     ])
+
+    const { commits, totalCount: totalCommits } = commitsResult
+
+    // Get code frequency with fallback to calculated data for large repos
+    const codeFrequencyResult = await getCodeFrequency(octokit, owner, repo, commits, useProxy)
 
     // Calculate language percentages
     const totalBytes = Object.values(languages).reduce((sum, bytes) => sum + bytes, 0)
@@ -260,7 +727,9 @@ export async function analyzeRepo(
       totalLines,
       languagePercentages,
       commits,
-      codeFrequency,
+      totalCommits,
+      codeFrequency: codeFrequencyResult.data,
+      codeFrequencyIsCalculated: codeFrequencyResult.isCalculated,
       contributors,
       totalAdditions,
       totalDeletions,

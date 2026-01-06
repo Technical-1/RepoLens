@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Minus, GitCommit } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
 import Image from 'next/image'
+import { formatNumber } from '@/lib/format'
 
 interface ContributorsListProps {
   data: FullRepoAnalysis
@@ -19,12 +20,6 @@ export default function ContributorsList({ data }: ContributorsListProps) {
     : sortedContributors.slice(0, 10)
 
   const maxCommits = sortedContributors[0]?.total || 1
-
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-    return num.toLocaleString()
-  }
 
   // Calculate total additions/deletions per contributor
   const getContributorStats = (contributor: typeof sortedContributors[0]) => {
@@ -100,17 +95,17 @@ export default function ContributorsList({ data }: ContributorsListProps) {
                     <div className="flex items-center gap-4 text-sm">
                       <span className="flex items-center gap-1 text-github-muted">
                         <GitCommit className="w-4 h-4" />
-                        {formatNumber(contributor.total)}
+                        {formatNumber(contributor.total, true)}
                       </span>
                       {stats.hasWeeklyData && (
                         <>
                           <span className="flex items-center gap-1 text-green-400">
                             <Plus className="w-3.5 h-3.5" />
-                            {formatNumber(stats.additions)}
+                            {formatNumber(stats.additions, true)}
                           </span>
                           <span className="flex items-center gap-1 text-red-400">
                             <Minus className="w-3.5 h-3.5" />
-                            {formatNumber(stats.deletions)}
+                            {formatNumber(stats.deletions, true)}
                           </span>
                         </>
                       )}

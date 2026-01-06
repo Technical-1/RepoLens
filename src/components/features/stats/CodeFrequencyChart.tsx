@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, AlertCircle } from 'lucide-react'
 import {
   AreaChart,
   Area,
@@ -21,7 +21,9 @@ interface CodeFrequencyChartProps {
 export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
   const [localData, setLocalData] = useState<CodeFrequency[]>(data.codeFrequency)
   const [isPolling, setIsPolling] = useState(false)
-  const [pollError, setPollError] = useState(false)
+  const [isUnavailable, setIsUnavailable] = useState(false)
+  const [unavailableReason, setUnavailableReason] = useState<string | null>(null)
+  const isCalculated = data.codeFrequencyIsCalculated
   const pollCountRef = useRef(0)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const maxPolls = 5 // Poll up to 5 times with backoff
@@ -33,8 +35,8 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
   const repo = match?.[2]
 
   useEffect(() => {
-    // If we have data or no repo info, don't poll
-    if (localData.length > 0 || !owner || !repo) {
+    // If we have data (including calculated), stats are unavailable, or no repo info, don't poll
+    if (localData.length > 0 || isUnavailable || isCalculated || !owner || !repo) {
       return
     }
 
@@ -46,7 +48,6 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
 
     const poll = async () => {
       setIsPolling(true)
-      setPollError(false)
       
       try {
         const res = await fetch('/api/repo/stats', {
@@ -57,19 +58,38 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
 
         if (res.ok) {
           const result = await res.json()
+          
+          // Check if stats are marked as unavailable (e.g., too many commits)
+          if (result.unavailable) {
+            setIsUnavailable(true)
+            setUnavailableReason(result.reason || 'Statistics not available for this repository')
+            setIsPolling(false)
+            return
+          }
+          
+          // Check if data is ready
           if (result.data && result.data.length > 0) {
             setLocalData(result.data)
             setIsPolling(false)
             return
           }
-        } else if (res.status === 500) {
-          // Server error - likely rate limited, use longer backoff
-          setPollError(true)
+          
+          // If computing, continue polling
+          if (result.computing) {
+            pollCountRef.current += 1
+            if (pollCountRef.current < maxPolls) {
+              const delay = getBackoffDelay(pollCountRef.current)
+              timeoutRef.current = setTimeout(poll, delay)
+            } else {
+              setIsPolling(false)
+            }
+            return
+          }
         }
 
+        // Non-200 response or unexpected format
         pollCountRef.current += 1
         if (pollCountRef.current < maxPolls) {
-          // Schedule next poll with exponential backoff
           const delay = getBackoffDelay(pollCountRef.current)
           timeoutRef.current = setTimeout(poll, delay)
         } else {
@@ -83,7 +103,6 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
           timeoutRef.current = setTimeout(poll, delay)
         } else {
           setIsPolling(false)
-          setPollError(true)
         }
       }
     }
@@ -96,7 +115,7 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [localData.length, owner, repo])
+  }, [localData.length, owner, repo, isUnavailable, isCalculated])
 
   // Transform data for the chart - only show last 52 weeks
   const chartData = localData
@@ -126,6 +145,14 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
                 This usually takes a few seconds. Auto-refreshing...
               </p>
             </>
+          ) : isUnavailable ? (
+            <>
+              <AlertCircle className="w-6 h-6 mb-3 text-yellow-500" />
+              <p className="mb-2 text-yellow-400">Code frequency not available</p>
+              <p className="text-sm text-github-muted/70">
+                {unavailableReason || 'This repository is too large for GitHub to compute code frequency statistics.'}
+              </p>
+            </>
           ) : (
             <>
               <p className="mb-2">Statistics unavailable for this repository.</p>
@@ -141,10 +168,17 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
 
   return (
     <div className="glass-card rounded-xl p-6 border border-github-border/50 fade-in">
-      <h3 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-gradient-to-r from-green-400 to-red-400"></span>
-        Code Frequency (Last Year)
-      </h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-gradient-to-r from-green-400 to-red-400"></span>
+          Code Frequency
+        </h3>
+        {isCalculated && (
+          <span className="text-xs text-github-muted bg-github-card px-2 py-1 rounded-md border border-github-border">
+            Based on {data.commits.length} recent commits
+          </span>
+        )}
+      </div>
 
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">

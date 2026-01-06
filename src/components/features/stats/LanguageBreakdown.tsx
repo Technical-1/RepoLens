@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
+import { formatBytes } from '@/lib/format'
 
 interface LanguageBreakdownProps {
   data: FullRepoAnalysis
@@ -10,18 +11,12 @@ interface LanguageBreakdownProps {
 
 export default function LanguageBreakdown({ data }: LanguageBreakdownProps) {
   const [showAll, setShowAll] = useState(false)
-  
-  const formatBytes = (bytes: number): string => {
-    if (bytes >= 1000000) return (bytes / 1000000).toFixed(1) + ' MB'
-    if (bytes >= 1000) return (bytes / 1000).toFixed(1) + ' KB'
-    return bytes + ' B'
-  }
 
   const totalBytes = data.languagePercentages.reduce((sum, l) => sum + l.bytes, 0)
   const displayedLanguages = showAll 
     ? data.languagePercentages 
-    : data.languagePercentages.slice(0, 10)
-  const hasMore = data.languagePercentages.length > 10
+    : data.languagePercentages.slice(0, 4)
+  const hasMore = data.languagePercentages.length > 4
 
   return (
     <div className="glass-card rounded-xl p-6 border border-github-border/50 fade-in">

@@ -13,8 +13,7 @@ export async function GET() {
       )
     }
 
-    // @ts-expect-error - accessToken is added dynamically
-    const accessToken = session.accessToken as string
+    const accessToken = session.accessToken!
 
     if (!accessToken) {
       return NextResponse.json(

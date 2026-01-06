@@ -13,6 +13,7 @@ import {
   Share2
 } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
+import { formatNumber, formatDate } from '@/lib/format'
 
 interface StatsOverviewProps {
   data: FullRepoAnalysis
@@ -20,56 +21,46 @@ interface StatsOverviewProps {
 }
 
 export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
-  const formatNumber = (num: number): string => {
-    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-    if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
-    return num.toLocaleString()
-  }
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
+  // Generate subtext for line counts based on how many commits we analyzed
+  const commitCountText = `Last ${data.commits.length} commits`
+  
   const stats = [
     {
       label: 'Total Lines',
-      value: formatNumber(data.totalLines),
-      subtext: 'Based on commit history',
+      value: formatNumber(data.totalLines, true),
+      subtext: commitCountText,
       icon: Code,
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10',
     },
     {
       label: 'Lines Added',
-      value: formatNumber(data.totalAdditions),
-      subtext: 'From analyzed commits',
+      value: formatNumber(data.totalAdditions, true),
+      subtext: commitCountText,
       icon: Plus,
       color: 'text-green-400',
       bgColor: 'bg-green-500/10',
     },
     {
       label: 'Lines Removed',
-      value: formatNumber(data.totalDeletions),
-      subtext: 'From analyzed commits',
+      value: formatNumber(data.totalDeletions, true),
+      subtext: commitCountText,
       icon: Minus,
       color: 'text-red-400',
       bgColor: 'bg-red-500/10',
     },
     {
-      label: 'Commits',
-      value: formatNumber(data.commits.length),
-      subtext: 'Recent commits analyzed',
+      label: 'Total Commits',
+      value: formatNumber(data.totalCommits, true),
+      subtext: 'All time',
       icon: GitCommit,
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10',
     },
     {
       label: 'Stars',
-      value: formatNumber(data.repo.stars),
+      value: formatNumber(data.repo.stars, true),
       subtext: 'Repository stars',
       icon: Star,
       color: 'text-yellow-400',
@@ -77,7 +68,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
     },
     {
       label: 'Forks',
-      value: formatNumber(data.repo.forks),
+      value: formatNumber(data.repo.forks, true),
       subtext: 'Repository forks',
       icon: GitFork,
       color: 'text-cyan-400',
