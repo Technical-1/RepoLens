@@ -15,7 +15,14 @@
     {
       "src": "/apple-icon",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-icon",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "categories": ["developer tools", "productivity", "utilities"]

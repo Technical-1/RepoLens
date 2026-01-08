@@ -73,8 +73,13 @@ export const metadata: Metadata = {
     },
   },
   icons: {
-    icon: '/icon',
-    apple: '/apple-icon',
+    icon: [
+      { url: '/icon', sizes: '32x32', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/apple-icon', sizes: '180x180', type: 'image/png' },
+    ],
+    shortcut: '/icon',
   },
   manifest: '/manifest.json',
   category: 'technology',
