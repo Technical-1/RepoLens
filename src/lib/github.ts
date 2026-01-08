@@ -12,6 +12,24 @@ import type {
 // Import language colors
 import { LANGUAGE_COLORS as langColors } from "@/types"
 
+// GitHub API response type for repo info
+interface GitHubRepoResponse {
+  name: string
+  full_name: string
+  description: string | null
+  html_url: string
+  stargazers_count: number
+  forks_count: number
+  watchers_count: number
+  open_issues_count: number
+  default_branch: string
+  created_at: string
+  updated_at: string
+  pushed_at: string
+  size: number
+  private: boolean
+}
+
 // Cloudflare Worker proxy for authenticated GitHub API calls
 // This provides 5,000/hr rate limits for unauthenticated users
 const GITHUB_PROXY_URL = process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
@@ -153,10 +171,10 @@ export async function getRepoInfo(
   repo: string,
   useProxy: boolean = false
 ): Promise<RepoStats> {
-  let data: any
+  let data: GitHubRepoResponse
   
   if (useProxy && GITHUB_PROXY_URL) {
-    const result = await fetchRESTViaProxy<any>(`/repos/${owner}/${repo}`)
+    const result = await fetchRESTViaProxy<GitHubRepoResponse>(`/repos/${owner}/${repo}`)
     data = result.data
   } else {
     const response = await octokit.repos.get({ owner, repo })
