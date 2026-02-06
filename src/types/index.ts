@@ -54,7 +54,9 @@ export interface FullRepoAnalysis {
   totalLines: number
   languagePercentages: { name: string; bytes: number; percentage: number; color: string }[]
   commits: CommitStats[]
+  totalCommits: number // Accurate total from GraphQL
   codeFrequency: CodeFrequency[]
+  codeFrequencyIsCalculated: boolean // true if calculated from commits (large repos >10k)
   contributors: ContributorStats[]
   totalAdditions: number
   totalDeletions: number

@@ -8,14 +8,21 @@
   "theme_color": "#238636",
   "icons": [
     {
-      "src": "/icon",
+      "src": "/favicon.png",
       "sizes": "32x32",
       "type": "image/png"
     },
     {
-      "src": "/apple-icon",
+      "src": "/apple-icon.png",
       "sizes": "180x180",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ],
   "categories": ["developer tools", "productivity", "utilities"]

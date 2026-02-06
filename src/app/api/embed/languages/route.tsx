@@ -1,9 +1,36 @@
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
-import { Octokit } from '@octokit/rest'
 import { LANGUAGE_COLORS } from '@/types'
+import { 
+  getEmbedTheme, 
+  createErrorImageResponse, 
+  getErrorDetails,
+} from '@/lib/embed-utils'
 
 export const runtime = 'edge'
+
+const IMAGE_WIDTH = 700
+const IMAGE_HEIGHT_FULL = 240
+const IMAGE_HEIGHT_COMPACT = 200
+
+// Proxy URL for authenticated GitHub API calls
+const GITHUB_PROXY_URL = process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
+
+async function fetchFromProxy<T>(path: string): Promise<T> {
+  if (!GITHUB_PROXY_URL) {
+    throw new Error('Proxy not configured')
+  }
+  const response = await fetch(`${GITHUB_PROXY_URL}/github${path}`, {
+    headers: {
+      'Accept': 'application/vnd.github.v3+json',
+      'X-RepoLens-Server': 'repolens-server-request',
+    },
+  })
+  if (!response.ok) {
+    throw new Error(`GitHub API error: ${response.status}`)
+  }
+  return response.json()
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
@@ -18,21 +45,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const octokit = new Octokit()
-    
     let repoFullName = `${owner}/${repo}`
     let languages: { name: string; percentage: number; color: string }[] = []
     
     try {
-      const [repoResponse, langResponse] = await Promise.all([
-        octokit.repos.get({ owner, repo }),
-        octokit.repos.listLanguages({ owner, repo }),
+      const [repoData, langData] = await Promise.all([
+        fetchFromProxy<{ full_name: string }>(`/repos/${owner}/${repo}`),
+        fetchFromProxy<Record<string, number>>(`/repos/${owner}/${repo}/languages`),
       ])
-      repoFullName = repoResponse.data.full_name
+      repoFullName = repoData.full_name
       
       // Calculate percentages
-      const totalBytes = Object.values(langResponse.data).reduce((sum, bytes) => sum + bytes, 0)
-      languages = Object.entries(langResponse.data)
+      const totalBytes = Object.values(langData).reduce((sum, bytes) => sum + bytes, 0)
+      languages = Object.entries(langData)
         .map(([name, bytes]) => ({
           name,
           bytes,
@@ -44,75 +69,15 @@ export async function GET(request: NextRequest) {
     } catch (apiError: unknown) {
       const message = apiError instanceof Error ? apiError.message : 'Unknown error'
       console.error('GitHub API error:', message)
-      
-      // Return an error image instead of broken preview
-      const isDark = theme === 'dark'
-      const errorBg = isDark ? '#0d1117' : '#ffffff'
-      const errorText = isDark ? '#e6edf3' : '#1f2328'
-      const errorMuted = isDark ? '#8b949e' : '#656d76'
-      const errorBorder = isDark ? '#30363d' : '#d0d7de'
-      
-      const errorTitle = message.includes('rate limit') ? 'Rate Limit Exceeded' : 'Unable to Load Languages'
-      const errorDescription = message.includes('rate limit') 
-        ? 'GitHub API rate limit reached. Try again later.'
-        : 'Could not fetch repository data.'
-      
-      return new ImageResponse(
-        (
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              height: '100%',
-              backgroundColor: errorBg,
-              padding: 40,
-              fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-              border: `2px solid ${errorBorder}`,
-              borderRadius: 16,
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 64,
-                height: 64,
-                borderRadius: 32,
-                backgroundColor: '#f8514926',
-                marginBottom: 16,
-              }}
-            >
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f85149" strokeWidth="2">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 8v4M12 16h.01" />
-              </svg>
-            </div>
-            <span style={{ fontSize: 24, fontWeight: 700, color: errorText, marginBottom: 8 }}>{errorTitle}</span>
-            <span style={{ fontSize: 14, color: errorMuted, textAlign: 'center' }}>{errorDescription}</span>
-          </div>
-        ),
-        {
-          width: 700,
-          height: 240,
-          headers: {
-            'Cache-Control': 'public, max-age=300, s-maxage=300',
-          },
-        }
-      )
+      const errorDetails = getErrorDetails(message)
+      if (errorDetails.title === 'Unable to Load Stats') {
+        errorDetails.title = 'Unable to Load Languages'
+      }
+      return createErrorImageResponse(theme, errorDetails.title, errorDetails.description, IMAGE_WIDTH, IMAGE_HEIGHT_FULL)
     }
 
-    const isDark = theme === 'dark'
-    const bg = isDark ? '#0d1117' : '#ffffff'
-    const text = isDark ? '#e6edf3' : '#1f2328'
-    const muted = isDark ? '#8b949e' : '#656d76'
-    const cardBg = isDark ? '#161b22' : '#f6f8fa'
-    const border = isDark ? '#30363d' : '#d0d7de'
-
-    const imageHeight = hideRepoName ? 200 : 240
+    const themeColors = getEmbedTheme(theme)
+    const imageHeight = hideRepoName ? IMAGE_HEIGHT_COMPACT : IMAGE_HEIGHT_FULL
 
     return new ImageResponse(
       (
@@ -122,10 +87,10 @@ export async function GET(request: NextRequest) {
             flexDirection: 'column',
             width: '100%',
             height: '100%',
-            backgroundColor: bg,
+            backgroundColor: themeColors.bg,
             padding: hideRepoName ? 30 : 40,
             fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif',
-            border: `2px solid ${border}`,
+            border: `2px solid ${themeColors.border}`,
             borderRadius: 16,
             justifyContent: hideRepoName ? 'center' : 'flex-start',
           }}
@@ -152,9 +117,9 @@ export async function GET(request: NextRequest) {
                     marginRight: 12,
                   }}
                 />
-                <span style={{ fontSize: 24, fontWeight: 700, color: text }}>Languages</span>
+                <span style={{ fontSize: 24, fontWeight: 700, color: themeColors.text }}>Languages</span>
               </div>
-              <span style={{ fontSize: 16, color: muted }}>{repoFullName}</span>
+              <span style={{ fontSize: 16, color: themeColors.muted }}>{repoFullName}</span>
             </div>
           )}
 
@@ -200,7 +165,7 @@ export async function GET(request: NextRequest) {
                   display: 'flex',
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: cardBg,
+                  backgroundColor: themeColors.cardBg,
                   borderRadius: 8,
                   padding: '10px 16px',
                 }}
@@ -215,15 +180,15 @@ export async function GET(request: NextRequest) {
                     marginRight: 10,
                   }}
                 />
-                <span style={{ fontSize: 16, fontWeight: 600, color: text, marginRight: 8 }}>{lang.name}</span>
-                <span style={{ fontSize: 14, color: muted }}>{lang.percentage.toFixed(1)}%</span>
+                <span style={{ fontSize: 16, fontWeight: 600, color: themeColors.text, marginRight: 8 }}>{lang.name}</span>
+                <span style={{ fontSize: 14, color: themeColors.muted }}>{lang.percentage.toFixed(1)}%</span>
               </div>
             ))}
           </div>
         </div>
       ),
       {
-        width: 700,
+        width: IMAGE_WIDTH,
         height: imageHeight,
         headers: {
           'Cache-Control': 'public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400',

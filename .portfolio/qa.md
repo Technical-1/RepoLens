@@ -18,34 +18,49 @@ Generate SVG images that can be embedded directly in README files. Three widget 
 ### GitHub OAuth Integration
 Sign in with GitHub to access private repositories and increase API rate limits from 60 to 5,000 requests per hour. Authentication uses NextAuth v5 with JWT sessions - no credentials are stored on any server.
 
-### User Repository Dashboard
-Authenticated users see a dashboard of their own repositories sorted by last update, with quick-access buttons to analyze any of them. The list supports pagination and includes private repositories.
+### User Dashboard
+Authenticated users get a dedicated dashboard at `/dashboard` showing their repositories sorted by last update, with quick-analyze buttons. The dashboard supports search, pagination, refresh, and includes private repositories.
+
+### Dynamic Repo Pages
+Each repository analysis has its own URL at `/repo/[owner]/[name]`, making results deep-linkable, shareable, and bookmarkable. Both authenticated and unauthenticated users can access these pages.
 
 ### Privacy-First Design
 The application never stores user credentials or access tokens in a database. All authentication happens through GitHub OAuth, and tokens exist only in browser sessions. Users can revoke access at any time through their GitHub settings.
 
 ## Technical Highlights
 
+### GraphQL + REST Hybrid API Strategy
+The most significant optimization is the hybrid GitHub API approach. Fetching commit history used to require 51+ REST API calls (1 for the commit list + 1 per commit for details). I replaced this with a single GraphQL query that returns everything in one call — a ~98% reduction in API consumption. The system falls back to REST if GraphQL fails, and can calculate approximate code frequency from commit data when the statistics API returns 422 for large repos.
+
 ### Handling GitHub's 202 Response
 GitHub's statistics API returns HTTP 202 when stats are still being computed for a repository. I implemented client-side polling with exponential backoff (3s, 6s, 12s, 24s, 48s) that gracefully handles this case, showing a loading state while automatically retrying until data is available.
 
-### Server-Side Caching Strategy
-To work within GitHub's strict rate limits for unauthenticated requests (60/hour), I implemented an in-memory cache with 10-minute TTL and a maximum size of 100 entries. This allows multiple users to view the same popular repository without exhausting the rate limit.
+### Feature-Sliced Component Architecture
+Components are organized by domain: `layout/` for page structure, `ui/` for reusable primitives (Card with variant system, LoadingSkeleton), `features/` for domain-specific components (stats, commits, contributors, repos), and specialized directories for embed and effects. A barrel export enables clean imports from `@/components`.
+
+### Typed Caching with TTL
+The caching layer uses a generic `Cache<T>` class with configurable TTL and max size. Pre-configured instances (`repoCache`, `statsCache`) handle unauthenticated request caching to stay within GitHub's 60 req/hr limit. Expired entries are cleaned up automatically.
+
+### Server-Side Route Protection
+The dashboard uses a Next.js server-side layout guard (`dashboard/layout.tsx`) that checks authentication via `auth()` and redirects unauthenticated users. This pattern keeps the auth check on the server, avoiding client-side flash.
+
+### Zod Validation at API Boundaries
+All API inputs pass through Zod schemas that handle multiple GitHub URL formats (full URLs, `owner/repo`, with or without `.git`). Validation happens only at system boundaries — internal code trusts validated data.
 
 ### Edge-Rendered Embed Images
-The embed endpoints use Next.js's Edge runtime with `next/og` (Satori) to generate images on-demand. These are cached at the CDN edge for 1 hour (`s-maxage=3600`), which means the first request generates the image and subsequent requests are served instantly from cache.
+The embed endpoints use Next.js's Edge runtime with `next/og` (Satori) to generate images on-demand. These are cached at the CDN edge for 1 hour (`s-maxage=3600`), which means the first request generates the image and subsequent requests are served instantly from cache. Shared utilities in `lib/embed-utils.tsx` keep the embed routes DRY.
 
 ### Parallel API Fetching
 To minimize latency, I fetch repository info, languages, commits, code frequency, and contributors in parallel using `Promise.all()`. This reduces total request time significantly compared to sequential fetching, though it does consume more of the API rate limit per analysis.
 
-### Graceful Degradation
-When certain statistics aren't available (common for new or very large repositories), the UI shows helpful placeholders instead of errors. Contributors fall back to a simpler endpoint when detailed stats aren't computed yet.
+### SEO & Static Image Optimization
+I replaced the dynamically generated OG image, favicon, and Apple icon (which used edge `ImageResponse` to produce the same image on every request) with pre-rendered static PNGs. This eliminates unnecessary edge compute. I also added `robots.txt`, `sitemap.xml`, JSON-LD structured data (WebApplication + per-page WebPage), and per-page `generateMetadata()` for dynamic repo routes — which required splitting the repo page into a server component (for metadata) and a client component (for the interactive UI).
 
 ## Frequently Asked Questions
 
 ### Q: Why do some repositories show "Statistics unavailable"?
 
-A: GitHub's statistics API has limitations. Repositories with over 10,000 commits may not have computed statistics available. Additionally, when you first request stats for a repository that hasn't been analyzed recently, GitHub needs time to compute them - the app will automatically poll until they're ready.
+A: GitHub's statistics API has limitations. Repositories with over 10,000 commits may not have computed statistics available. Additionally, when you first request stats for a repository that hasn't been analyzed recently, GitHub needs time to compute them - the app will automatically poll until they're ready. For large repos, the app now falls back to calculating approximate code frequency from commit data.
 
 ### Q: How accurate is the "Total Lines" count?
 
@@ -53,7 +68,7 @@ A: The total lines metric is calculated from the commit history I can access (ty
 
 ### Q: Why should I sign in with GitHub?
 
-A: Signing in provides two benefits: access to your private repositories, and a much higher API rate limit (5,000 requests/hour vs 60 requests/hour). If you're analyzing many repositories or large ones, signing in prevents rate limit errors.
+A: Signing in provides three benefits: access to your private repositories, a much higher API rate limit (5,000 requests/hour vs 60 requests/hour), and a personal dashboard showing all your repos with quick-analyze buttons.
 
 ### Q: Is my GitHub data stored anywhere?
 
@@ -83,9 +98,17 @@ A: Yes! The project is designed to be self-hostable. You'll need to create your 
 
 A: I maintain a static mapping of language colors based on GitHub's linguist library. If a language isn't in my mapping, it falls back to a default gray color. The mapping covers all common languages but may miss some obscure ones.
 
+### Q: How does the GraphQL optimization work?
+
+A: Instead of making one REST call per commit to get detailed stats (additions, deletions, file changes), the app sends a single GraphQL query that fetches all commit details at once. For a typical 50-commit analysis, this reduces API calls from 51 to 1. The REST API is used as a fallback if GraphQL is unavailable.
+
+### Q: What's the difference between the public page and the dashboard?
+
+A: The public page at `/` lets anyone analyze a repo by URL. The dashboard at `/dashboard` is for authenticated users and shows all their GitHub repos (including private ones) with one-click analysis. Both eventually land on the same `/repo/[owner]/[name]` page for results.
+
 ## Limitations
 
-- **10,000 commit limit**: GitHub's statistics API doesn't work reliably for repositories with more than 10,000 commits
+- **Large repos**: GitHub's statistics API can struggle with repositories over 10,000 commits, though the GraphQL fallback handles most cases
 - **Rate limiting**: Heavy use without authentication will hit GitHub's 60 requests/hour limit
 - **Stats computation time**: First-time analysis of a repository may require waiting for GitHub to compute statistics
 - **Embed privacy**: Widgets only work for public repositories

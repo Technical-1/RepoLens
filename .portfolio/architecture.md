@@ -10,21 +10,39 @@ graph TB
     end
 
     subgraph Frontend["Frontend - Next.js 15 App Router"]
-        Page[page.tsx<br/>Main Application]
-        Components[React Components]
         SessionCtx[SessionProvider<br/>Auth Context]
 
-        subgraph UI["UI Components"]
-            Header[Header]
-            RepoInput[RepoInput]
-            StatsOverview[StatsOverview]
-            LanguageBreakdown[LanguageBreakdown]
-            CodeFrequency[CodeFrequencyChart]
-            CommitHistory[CommitHistory]
-            Contributors[ContributorsList]
-            UserRepos[UserReposList]
-            EmbedShare[EmbedShare Modal]
-            Particles[ParticleBackground]
+        subgraph Pages["Pages"]
+            PublicPage["(public)/page.tsx<br/>Repo Search"]
+            Dashboard["dashboard/page.tsx<br/>User Dashboard"]
+            RepoPage["repo/[owner]/[name]/page.tsx<br/>Server Component + Metadata<br/>→ RepoPageClient.tsx"]
+        end
+
+        subgraph Components["Components"]
+            subgraph Layout["layout/"]
+                Header[Header]
+                Footer[Footer]
+            end
+            subgraph UIComp["ui/"]
+                Card[Card]
+                RepoInput[RepoInput]
+                LoadingSkeleton[LoadingSkeleton]
+                PrivacyNotice[PrivacyNotice]
+            end
+            subgraph Features["features/"]
+                StatsOverview[stats/StatsOverview]
+                LanguageBreakdown[stats/LanguageBreakdown]
+                CodeFrequency[stats/CodeFrequencyChart]
+                CommitHistory[commits/CommitHistory]
+                Contributors[contributors/ContributorsList]
+                UserRepos[repos/UserReposList]
+            end
+            subgraph EmbedComp["embed/"]
+                EmbedShare[EmbedShare Modal]
+            end
+            subgraph Effects["effects/"]
+                Particles[ParticleBackground]
+            end
         end
     end
 
@@ -42,42 +60,85 @@ graph TB
     end
 
     subgraph Services["Service Layer"]
-        GitHubLib[lib/github.ts<br/>GitHub API Wrapper]
+        GitHubLib[lib/github.ts<br/>GitHub API Wrapper<br/>REST + GraphQL]
         AuthConfig[auth.ts<br/>NextAuth Configuration]
-        Cache[In-Memory Cache<br/>10-min TTL]
+        CacheLib[lib/cache.ts<br/>TTL Cache]
+        Validations[lib/validations.ts<br/>Zod Schemas]
+        FormatLib[lib/format.ts<br/>Formatting Utils]
+        EmbedUtils[lib/embed-utils.tsx<br/>Embed Widget Helpers]
+        StructuredData[lib/structured-data.ts<br/>JSON-LD Schemas]
     end
 
     subgraph External["External Services"]
-        GitHubAPI[GitHub REST API<br/>via Octokit]
+        GitHubREST[GitHub REST API<br/>via Octokit]
+        GitHubGraphQL[GitHub GraphQL API]
         GitHubOAuth[GitHub OAuth<br/>Authentication]
         Vercel[Vercel Edge Network<br/>CDN + Hosting]
     end
 
-    Browser --> Page
-    URL --> Page
-    Page --> Components
-    Components --> UI
-    SessionCtx --> Page
+    Browser --> Pages
+    URL --> Pages
+    SessionCtx --> Pages
+    Pages --> Components
 
-    Page --> RepoRoute
-    Page --> UserReposRoute
+    PublicPage --> RepoRoute
+    Dashboard --> UserReposRoute
+    RepoPage --> RepoRoute
     CodeFrequency --> StatsRoute
-    Page --> AuthRoute
+    Pages --> AuthRoute
 
     RepoRoute --> GitHubLib
+    RepoRoute --> Validations
     StatsRoute --> GitHubLib
     UserReposRoute --> GitHubLib
 
     AuthRoute --> AuthConfig
     AuthConfig --> GitHubOAuth
 
-    GitHubLib --> GitHubAPI
-    GitHubLib --> Cache
+    GitHubLib --> GitHubREST
+    GitHubLib --> GitHubGraphQL
+    GitHubLib --> CacheLib
 
-    Embed --> GitHubAPI
+    Embed --> GitHubREST
+    Embed --> EmbedUtils
     Embed --> Vercel
 
-    RepoRoute --> Cache
+    RepoRoute --> CacheLib
+```
+
+## Routing Architecture
+
+```mermaid
+graph LR
+    subgraph Public["Public Routes"]
+        Home["/ — Repo search + analysis"]
+    end
+
+    subgraph Protected["Protected Routes"]
+        DashboardRoute["/dashboard — User repos"]
+    end
+
+    subgraph Dynamic["Dynamic Routes"]
+        RepoRoute["/repo/[owner]/[name] — Repo stats"]
+    end
+
+    subgraph APIRoutes["API Routes"]
+        Auth["/api/auth/*"]
+        Repo["/api/repo"]
+        Stats["/api/repo/stats"]
+        UserRepos["/api/user/repos"]
+        EmbedAPI["/api/embed/*"]
+    end
+
+    Home -->|Sign in| DashboardRoute
+    DashboardRoute -->|Select repo| RepoRoute
+    Home -->|Enter URL| RepoRoute
+    DashboardRoute -->|Auth guard| Home
+
+    RepoRoute --> Repo
+    RepoRoute --> Stats
+    DashboardRoute --> UserRepos
+    Home --> Repo
 ```
 
 ## Data Flow Diagram
@@ -88,7 +149,7 @@ sequenceDiagram
     participant Browser
     participant NextJS as Next.js App
     participant API as API Routes
-    participant Cache
+    participant Cache as TTL Cache
     participant GitHub as GitHub API
 
     User->>Browser: Enter repository URL
@@ -101,11 +162,13 @@ sequenceDiagram
             Cache-->>API: Return cached data
         else Cache Miss
             API->>GitHub: Fetch repo data (60 req/hr limit)
+            Note over API,GitHub: REST for repo info + GraphQL for commits
             GitHub-->>API: Repository stats
             API->>Cache: Store result (10 min TTL)
         end
     else Authenticated Request
         API->>GitHub: Fetch repo data (5000 req/hr limit)
+        Note over API,GitHub: REST for repo info + GraphQL for commits
         GitHub-->>API: Repository stats + private repos
     end
 
@@ -122,18 +185,67 @@ sequenceDiagram
     end
 ```
 
+## Component Architecture
+
+```
+components/
+├── index.ts                    # Barrel exports for clean imports
+├── layout/                     # Page structure components
+│   ├── Header.tsx              # Navigation, auth state, branding
+│   └── Footer.tsx              # Attribution and tech stack info
+├── ui/                         # Reusable atomic UI components
+│   ├── Card.tsx                # Card system (default/glass/stat variants)
+│   ├── LoadingSkeleton.tsx     # Loading states, spinners, skeletons
+│   ├── RepoInput.tsx           # Repository URL input form
+│   └── PrivacyNotice.tsx       # Privacy disclosure banner
+├── features/                   # Domain-specific feature components
+│   ├── stats/
+│   │   ├── StatsOverview.tsx       # Stars, forks, watchers grid
+│   │   ├── LanguageBreakdown.tsx   # Color-coded language bar
+│   │   └── CodeFrequencyChart.tsx  # Additions/deletions area chart
+│   ├── commits/
+│   │   └── CommitHistory.tsx       # Commit log with details
+│   ├── contributors/
+│   │   └── ContributorsList.tsx    # Top contributors grid
+│   └── repos/
+│       └── UserReposList.tsx       # User's repo dashboard
+├── embed/
+│   └── EmbedShare.tsx          # Widget embed code generator modal
+└── effects/
+    └── ParticleBackground.tsx  # Animated background particles
+```
+
 ## Key Architectural Decisions
 
-### 1. Next.js 15 App Router with Server Components
+### 1. Next.js 15 App Router with Route Groups
 
-I chose Next.js 15's App Router because it provides the best developer experience for a React application that needs both client-side interactivity and server-side data fetching. The App Router allows me to:
+I chose Next.js 15's App Router because it provides the best developer experience for a React application that needs both client-side interactivity and server-side data fetching. The refactored routing uses:
 
-- Use React Server Components for the layout and initial data loading
-- Leverage route handlers for API endpoints without a separate backend
-- Take advantage of built-in optimizations like automatic code splitting
-- Use the new Turbopack for faster development builds
+- **Route groups** `(public)` for unauthenticated pages without affecting URLs
+- **Server-side layout guards** in `/dashboard/layout.tsx` for protected routes
+- **Dynamic segments** `/repo/[owner]/[name]` for deep-linkable repo analyses
+- Turbopack for faster development builds
 
-### 2. Edge Runtime for Embed Image Generation
+### 2. Feature-Sliced Component Architecture
+
+Components are organized by domain rather than flat in a single directory:
+
+- **layout/** — structural components that appear on every page
+- **ui/** — generic, reusable atomic components (Card, LoadingSkeleton)
+- **features/** — domain-specific components grouped by feature area
+- **embed/** and **effects/** — specialized concerns
+- A barrel export (`index.ts`) enables clean imports from `@/components`
+
+### 3. GraphQL + REST Hybrid API Strategy
+
+The GitHub integration now uses both REST and GraphQL APIs:
+
+- **GraphQL** fetches commit history in a single call (replacing 51+ REST calls)
+- **REST** handles repo info, languages, contributors, and code frequency
+- **Fallback chain**: GraphQL → REST → calculated approximation for code frequency
+- This hybrid approach dramatically reduces API rate limit consumption
+
+### 4. Edge Runtime for Embed Image Generation
 
 The embed routes (`/api/embed/*`) use the Edge runtime with `next/og` (Satori) for SVG-to-image generation. I made this choice because:
 
@@ -142,29 +254,38 @@ The embed routes (`/api/embed/*`) use the Edge runtime with `next/og` (Satori) f
 - CDN caching at the edge reduces API calls significantly
 - The 1-hour cache (`s-maxage=3600`) balances freshness with performance
 
-### 3. In-Memory Server-Side Caching
+### 5. Typed In-Memory Caching with TTL
 
-For unauthenticated requests, I implemented a simple in-memory cache with a 10-minute TTL. This decision was made because:
+The caching layer was extracted into a dedicated generic `Cache<T>` class in `lib/cache.ts`:
 
-- GitHub's unauthenticated rate limit is only 60 requests per hour
-- Popular repositories would quickly exhaust the limit without caching
-- Memory cache is simpler than Redis for a single-instance deployment
-- The cache has a max size limit (100 entries) to prevent memory issues
+- Type-safe with generics — `repoCache` and `statsCache` are pre-configured instances
+- Configurable TTL (10 min for repos, 10 min for stats) and max size (100/50 entries)
+- Automatic cleanup of expired entries
+- Only used for unauthenticated requests to respect GitHub's 60 req/hr limit
 
-### 4. Client-Side Authentication State with NextAuth v5
+### 6. Zod Validation at API Boundaries
+
+All API route inputs are validated with Zod schemas in `lib/validations.ts`:
+
+- `RepoRequestSchema` handles multiple GitHub URL formats (`owner/repo`, full URLs, etc.)
+- `StatsRequestSchema` validates stats polling requests
+- Clear, user-friendly error messages via `formatZodError()`
+- Validation at the boundary only — internal code trusts validated data
+
+### 7. Client-Side Authentication State with NextAuth v5
 
 I use NextAuth v5 (Auth.js) with the GitHub provider for authentication. The access token is stored in the JWT and passed to the client session. Key reasons:
 
-- No database required - tokens exist only in signed JWTs
-- Privacy-first approach - no credentials stored server-side
+- No database required — tokens exist only in signed JWTs
+- Privacy-first approach — no credentials stored server-side
 - The `repo` scope allows access to private repositories
-- Session data is available on both client and server
+- Session data is available on both client and server via `SessionProvider`
 
-### 5. Parallel Data Fetching
+### 8. Parallel Data Fetching
 
 In `lib/github.ts`, I fetch repository data, languages, commits, code frequency, and contributors in parallel using `Promise.all()`. This significantly reduces total request time compared to sequential fetching, though it increases API usage per request.
 
-### 6. Progressive Enhancement for Statistics
+### 9. Progressive Enhancement for Statistics
 
 GitHub's statistics API returns 202 when stats are still being computed. Rather than blocking the UI, I:
 
@@ -173,15 +294,22 @@ GitHub's statistics API returns 202 when stats are still being computed. Rather 
 - Use a fallback endpoint for contributors if stats aren't ready
 - Show clear loading states with helpful messaging
 
-### 7. URL-Based State Management
+### 10. URL-Based State Management
 
-Repository selection is reflected in the URL (`?repo=owner/repo`). This enables:
+Repository selection is reflected in the URL via dynamic routes (`/repo/[owner]/[name]`) and query params (`?repo=owner/repo`). This enables:
 
 - Shareable links to specific repository analyses
 - Browser history navigation
 - Bookmarkable results
 - SEO benefits for public repository pages
 
-### 8. Component-Based Visualization Architecture
+### 11. SEO Infrastructure
 
-Each visualization (stats, languages, commits, frequency, contributors) is a self-contained component that receives the full analysis data and extracts what it needs. This makes components reusable and testable, though it does mean passing more data than strictly necessary.
+I added a comprehensive SEO layer to improve discoverability:
+
+- **Static OG/favicon images** — replaced dynamic edge-generated `ImageResponse` icons with pre-rendered PNGs in `public/`, eliminating unnecessary edge compute for images that never change
+- **`robots.ts`** — allows `/`, disallows `/api/` and `/dashboard`, references sitemap
+- **`sitemap.ts`** — includes only the homepage (dynamic repo pages are infinite and discovered organically)
+- **JSON-LD structured data** — `WebApplication` schema on every page via root layout, `WebPage` schema on individual repo pages via `lib/structured-data.ts`
+- **Per-page metadata** — the repo page uses a server/client split so the server component can export `generateMetadata()` with dynamic title, description, and OG tags for each `owner/name` combination
+- **Dashboard noindex** — the protected dashboard has `robots: { index: false, follow: false }` to prevent accidental crawling

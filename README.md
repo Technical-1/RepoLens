@@ -4,10 +4,11 @@
 
 Analyze GitHub repositories with beautiful visualizations. View language breakdowns, commit history, code frequency, contributors, and generate embeddable stats widgets for your README.
 
-![Next.js 15](https://img.shields.io/badge/Next.js-15-black)
+![Next.js 15](https://img.shields.io/badge/Next.js-15.3-black)
 ![React 19](https://img.shields.io/badge/React-19-blue)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
+![Zod](https://img.shields.io/badge/Zod-4-3068b7)
 
 ## Features
 
@@ -17,7 +18,12 @@ Analyze GitHub repositories with beautiful visualizations. View language breakdo
 - **Code Frequency Chart**: Interactive visualization of code changes over time
 - **Contributors List**: Top contributors with their contribution stats
 - **Embeddable Widgets**: Generate SVG images for your README to showcase repo stats
+- **User Dashboard**: Authenticated users get a personal dashboard with their repositories and quick-analyze
+- **Dynamic Repo Pages**: Dedicated `/repo/[owner]/[name]` pages for deep-linking to any analysis
 - **GitHub OAuth**: Sign in to access private repositories and higher API limits
+- **GraphQL Optimization**: Commits fetched via a single GraphQL call instead of 51+ REST calls
+- **Zod Validation**: All API inputs validated with Zod schemas for safety and clear error messages
+- **SEO Optimized**: Static OG images, robots.txt, sitemap.xml, JSON-LD structured data, and per-page metadata
 - **Privacy First**: No credentials stored - all auth happens directly with GitHub
 
 ## Embeddable Widgets
@@ -140,15 +146,16 @@ You can deploy RepoLens to any hosting service that supports Next.js, including 
 
 | Category | Technology |
 |----------|------------|
-| Framework | [Next.js 15](https://nextjs.org/) with App Router |
+| Framework | [Next.js 15.3](https://nextjs.org/) with App Router |
 | UI Library | [React 19](https://react.dev/) |
 | Authentication | [Auth.js v5](https://authjs.dev/) (NextAuth) |
-| GitHub API | [@octokit/rest](https://github.com/octokit/rest.js) |
+| GitHub API | [@octokit/rest](https://github.com/octokit/rest.js) + GitHub GraphQL |
+| Validation | [Zod 4](https://zod.dev/) |
 | Styling | [Tailwind CSS 3.4](https://tailwindcss.com/) |
 | Charts | [Recharts](https://recharts.org/) |
 | Icons | [Lucide React](https://lucide.dev/) |
 | Language | [TypeScript 5.7](https://www.typescriptlang.org/) |
-| Image Generation | [next/og](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/opengraph-image) (Satori) |
+| Image Generation | [next/og](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/opengraph-image) (Satori) for embeds; static PNGs for OG/favicons |
 
 ## API Rate Limits
 
@@ -172,6 +179,14 @@ Sign in with GitHub to get higher rate limits for analyzing large repositories.
 repolens/
 ├── src/
 │   ├── app/
+│   │   ├── (public)/
+│   │   │   └── page.tsx                     # Public repo search page
+│   │   ├── dashboard/
+│   │   │   ├── layout.tsx                   # Auth-protected layout
+│   │   │   └── page.tsx                     # User dashboard with repos
+│   │   ├── repo/[owner]/[name]/
+│   │   │   ├── page.tsx                     # Server component with generateMetadata + JSON-LD
+│   │   │   └── RepoPageClient.tsx           # Client component for repo stats UI
 │   │   ├── api/
 │   │   │   ├── auth/[...nextauth]/route.ts  # Auth handlers
 │   │   │   ├── embed/
@@ -182,26 +197,46 @@ repolens/
 │   │   │   │   ├── route.ts                 # Main repo analysis
 │   │   │   │   └── stats/route.ts           # Stats polling endpoint
 │   │   │   └── user/repos/route.ts          # User repos endpoint
+│   │   ├── robots.ts                        # robots.txt generation
+│   │   ├── sitemap.ts                       # sitemap.xml generation
 │   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
+│   │   └── layout.tsx                       # Root layout with SessionProvider + JSON-LD
 │   ├── components/
-│   │   ├── Header.tsx
-│   │   ├── RepoInput.tsx
-│   │   ├── StatsOverview.tsx
-│   │   ├── LanguageBreakdown.tsx
-│   │   ├── CommitHistory.tsx
-│   │   ├── CodeFrequencyChart.tsx
-│   │   ├── ContributorsList.tsx
-│   │   ├── UserReposList.tsx
-│   │   ├── EmbedShare.tsx
-│   │   ├── ParticleBackground.tsx
-│   │   └── PrivacyNotice.tsx
+│   │   ├── index.ts                         # Barrel exports
+│   │   ├── layout/
+│   │   │   ├── Header.tsx
+│   │   │   └── Footer.tsx
+│   │   ├── ui/
+│   │   │   ├── Card.tsx                     # Reusable card component system
+│   │   │   ├── LoadingSkeleton.tsx           # Loading states and skeletons
+│   │   │   ├── RepoInput.tsx
+│   │   │   └── PrivacyNotice.tsx
+│   │   ├── features/
+│   │   │   ├── stats/
+│   │   │   │   ├── StatsOverview.tsx
+│   │   │   │   ├── LanguageBreakdown.tsx
+│   │   │   │   └── CodeFrequencyChart.tsx
+│   │   │   ├── commits/
+│   │   │   │   └── CommitHistory.tsx
+│   │   │   ├── contributors/
+│   │   │   │   └── ContributorsList.tsx
+│   │   │   └── repos/
+│   │   │       └── UserReposList.tsx
+│   │   ├── embed/
+│   │   │   └── EmbedShare.tsx
+│   │   └── effects/
+│   │       └── ParticleBackground.tsx
 │   ├── lib/
-│   │   └── github.ts
+│   │   ├── github.ts                        # GitHub API (REST + GraphQL)
+│   │   ├── cache.ts                         # TTL-based in-memory cache
+│   │   ├── embed-utils.tsx                  # Embed widget generation helpers
+│   │   ├── structured-data.ts               # JSON-LD schema generators
+│   │   ├── format.ts                        # Number/date formatting
+│   │   └── validations.ts                   # Zod schemas for API inputs
 │   ├── types/
-│   │   └── index.ts
-│   └── auth.ts
+│   │   ├── index.ts                         # Shared TypeScript types
+│   │   └── next-auth.d.ts                   # NextAuth type extensions
+│   └── auth.ts                              # NextAuth configuration
 ├── tailwind.config.ts
 ├── next.config.ts
 ├── package.json
@@ -210,7 +245,7 @@ repolens/
 
 ## Limitations
 
-- **10,000 commit limit**: GitHub's statistics API doesn't work for repos with 10,000+ commits
+- **Large repos**: GitHub's statistics API can struggle with repos over 10,000 commits (GraphQL fallback handles most cases)
 - **Rate limiting**: Heavy use may hit GitHub API limits (sign in for higher limits)
 - **Stats computation**: Some statistics may take time to compute for new/updated repos
 - **Embed widgets**: Only works for public repositories
