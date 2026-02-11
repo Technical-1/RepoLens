@@ -17,7 +17,7 @@ describe('formatNumber', () => {
   it('formats thousands with K suffix', () => {
     expect(formatNumber(1000)).toBe('1.0K')
     expect(formatNumber(1500)).toBe('1.5K')
-    expect(formatNumber(999999)).toBe('1000.0K')
+    expect(formatNumber(999999)).toBe('1.0M')
   })
 
   it('formats millions with M suffix', () => {

@@ -73,20 +73,27 @@ describe('StatsRequestSchema', () => {
 })
 
 describe('formatZodError', () => {
-  it('formats single error', () => {
+  it('formats single error with the actual issue message', () => {
     const result = RepoRequestSchema.safeParse({ repoUrl: '' })
+    expect(result.success).toBe(false)
     if (!result.success) {
       const message = formatZodError(result.error)
-      expect(message).toBeTruthy()
-      expect(typeof message).toBe('string')
+      expect(message).toContain('required')
     }
   })
 
-  it('joins multiple errors with period', () => {
+  it('joins multiple errors with period separator', () => {
     const result = StatsRequestSchema.safeParse({})
+    expect(result.success).toBe(false)
     if (!result.success) {
       const message = formatZodError(result.error)
-      expect(message).toContain('.')
+      // Should contain multiple issue messages joined by ". "
+      const parts = message.split('. ')
+      expect(parts.length).toBeGreaterThanOrEqual(2)
+      // Each part should be a meaningful message, not empty
+      parts.forEach((part) => {
+        expect(part.length).toBeGreaterThan(0)
+      })
     }
   })
 })

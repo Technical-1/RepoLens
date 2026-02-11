@@ -24,19 +24,19 @@ export default function UserReposList({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
 
-  const filteredRepos = useMemo(
-    () => repos.filter((repo) => {
+  const filteredRepos = useMemo(() => {
+    const searchLower = search.toLowerCase()
+    return repos.filter((repo) => {
       const matchesSearch =
-        repo.name.toLowerCase().includes(search.toLowerCase()) ||
-        repo.description?.toLowerCase().includes(search.toLowerCase())
+        repo.name.toLowerCase().includes(searchLower) ||
+        repo.description?.toLowerCase().includes(searchLower)
       const matchesFilter =
         filter === 'all' ||
         (filter === 'public' && !repo.private) ||
         (filter === 'private' && repo.private)
       return matchesSearch && matchesFilter
-    }),
-    [repos, search, filter]
-  )
+    })
+  }, [repos, search, filter])
 
   if (loading && repos.length === 0) {
     return (

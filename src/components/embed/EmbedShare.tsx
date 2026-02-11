@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback, useEffect } from 'react'
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import { Code, Copy, Check, ExternalLink, X } from 'lucide-react'
 
 interface EmbedShareProps {
@@ -53,11 +53,43 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
     [selectedType, embedUrls, baseUrl, repoFullName]
   )
 
-  // Close on Escape key
+  const dialogRef = useRef<HTMLDivElement>(null)
+
+  // Close on Escape key + focus trap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        onClose()
+        return
+      }
+
+      // Focus trap: cycle focus within the dialog
+      if (e.key === 'Tab' && dialogRef.current) {
+        const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        )
+        if (focusable.length === 0) return
+
+        const first = focusable[0]
+        const last = focusable[focusable.length - 1]
+
+        if (e.shiftKey) {
+          if (document.activeElement === first) {
+            e.preventDefault()
+            last.focus()
+          }
+        } else {
+          if (document.activeElement === last) {
+            e.preventDefault()
+            first.focus()
+          }
+        }
+      }
     }
+
+    // Focus the dialog on mount
+    dialogRef.current?.focus()
+
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onClose])
@@ -86,10 +118,12 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
       onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="embed-dialog-title"
-        className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[calc(100vh-6rem)] overflow-y-auto"
+        tabIndex={-1}
+        className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[calc(100vh-6rem)] overflow-y-auto outline-none"
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-github-border/50">

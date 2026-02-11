@@ -12,12 +12,14 @@ const serverSchema = z.object({
 
 const clientSchema = z.object({
   NEXT_PUBLIC_SITE_URL: z.string().url().optional().default('https://repolens.io'),
-  NEXT_PUBLIC_GITHUB_PROXY_URL: z.string().url().optional().default(''),
+  NEXT_PUBLIC_GITHUB_PROXY_URL: z.string().optional().default(''),
 })
 
 function parseServerEnv() {
-  // Skip validation during build/test (env vars may not be set)
-  if ((process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') && !process.env.AUTH_GITHUB_ID) {
+  // Skip validation during build (static pages) and tests (env vars may not be set)
+  const isBuild = process.env.NEXT_PHASE === 'phase-production-build'
+  const isTest = process.env.NODE_ENV === 'test'
+  if ((isBuild || isTest) && !process.env.AUTH_GITHUB_ID) {
     return {
       AUTH_GITHUB_ID: '',
       AUTH_GITHUB_SECRET: '',

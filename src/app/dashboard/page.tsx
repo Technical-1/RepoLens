@@ -45,7 +45,8 @@ function DashboardContent() {
   )
 
   const handleRefreshRepos = useCallback(() => {
-    refreshRepos()
+    // Force revalidation bypassing SWR's dedupingInterval
+    refreshRepos(undefined, { revalidate: true })
   }, [refreshRepos])
 
   const analyzeRepo = async (url: string) => {

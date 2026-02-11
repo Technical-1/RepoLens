@@ -54,6 +54,7 @@ describe('createCache', () => {
     // This should trigger cleanup and evict 'a'
     cache.set('c', 'third')
 
+    expect(cache.get('a')).toBeNull()
     expect(cache.get('c')).not.toBeNull()
     expect(cache.get('b')).not.toBeNull()
   })

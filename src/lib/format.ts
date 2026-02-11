@@ -5,7 +5,12 @@
  */
 export function formatNumber(num: number, useLocale = false): string {
   if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M'
-  if (num >= 1000) return (num / 1000).toFixed(1) + 'K'
+  if (num >= 1000) {
+    const kValue = num / 1000
+    // Avoid "1000.0K" — display as "1.0M" instead
+    if (kValue >= 999.95) return (num / 1000000).toFixed(1) + 'M'
+    return kValue.toFixed(1) + 'K'
+  }
   return useLocale ? num.toLocaleString() : num.toString()
 }
 

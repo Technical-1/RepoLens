@@ -55,12 +55,12 @@ body {
   background-clip: text;
 }
 
-/* Glass card effect */
+/* Glass card effect — no contain:paint as it breaks backdrop-filter on Safari */
 .glass-card {
   background: rgba(22, 27, 34, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(48, 54, 61, 0.5);
-  contain: layout style paint;
+  contain: layout style;
 }
 
 /* Animated gradient background */
@@ -309,6 +309,14 @@ input:focus {
 
   .commit-row {
     transition: none;
+  }
+
+  .loading-dots::after {
+    animation: none;
+  }
+
+  .animate-spin {
+    animation: none;
   }
 
   html {

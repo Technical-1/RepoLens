@@ -29,10 +29,10 @@ export function createCache<T>(options: CacheOptions) {
         cache.delete(key)
       }
     }
-    // If still too large, remove oldest entries
-    if (cache.size > maxSize) {
+    // If still at or above capacity, remove oldest entries to make room
+    if (cache.size >= maxSize) {
       const entries = [...cache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp)
-      const toRemove = entries.slice(0, cache.size - maxSize)
+      const toRemove = entries.slice(0, cache.size - maxSize + 1)
       toRemove.forEach(([key]) => cache.delete(key))
     }
   }
