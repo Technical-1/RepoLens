@@ -48,6 +48,7 @@ export default function Header() {
                 </div>
                 <button
                   onClick={() => signOut()}
+                  aria-label="Sign out of your account"
                   className="flex items-center gap-2 px-4 py-2 text-sm bg-github-card hover:bg-github-border/50 border border-github-border rounded-lg text-github-text transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
@@ -57,6 +58,7 @@ export default function Header() {
             ) : (
               <button
                 onClick={() => signIn('github')}
+                aria-label="Sign in with GitHub"
                 className="flex items-center gap-2 px-4 py-2 text-sm btn-primary rounded-lg text-white font-medium"
               >
                 <LogIn className="w-4 h-4" />

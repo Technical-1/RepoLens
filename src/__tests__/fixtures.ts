@@ -1,0 +1,77 @@
+import type { FullRepoAnalysis } from '@/types'
+
+export const mockRepoAnalysis: FullRepoAnalysis = {
+  repo: {
+    name: 'react',
+    fullName: 'facebook/react',
+    description: 'A JavaScript library for building user interfaces',
+    url: 'https://github.com/facebook/react',
+    stars: 220000,
+    forks: 45000,
+    watchers: 6800,
+    openIssues: 1500,
+    defaultBranch: 'main',
+    createdAt: '2013-05-24T16:15:54Z',
+    updatedAt: '2024-06-15T12:00:00Z',
+    pushedAt: '2024-06-15T10:00:00Z',
+    size: 400000,
+    private: false,
+  },
+  languages: {
+    JavaScript: 5000000,
+    TypeScript: 2000000,
+    CSS: 500000,
+  },
+  totalLines: 250000,
+  languagePercentages: [
+    { name: 'JavaScript', bytes: 5000000, percentage: 66.7, color: '#f1e05a' },
+    { name: 'TypeScript', bytes: 2000000, percentage: 26.7, color: '#3178c6' },
+    { name: 'CSS', bytes: 500000, percentage: 6.7, color: '#563d7c' },
+  ],
+  commits: [
+    {
+      sha: 'abc1234567890',
+      message: 'Fix rendering bug in concurrent mode',
+      author: 'gaearon',
+      authorAvatar: 'https://avatars.githubusercontent.com/u/810438',
+      date: '2024-06-15T10:00:00Z',
+      additions: 42,
+      deletions: 15,
+      files: 3,
+    },
+    {
+      sha: 'def9876543210',
+      message: 'Add new hooks API',
+      author: 'acdlite',
+      authorAvatar: '',
+      date: '2024-06-14T08:30:00Z',
+      additions: 300,
+      deletions: 50,
+      files: 8,
+    },
+  ],
+  totalCommits: 18500,
+  codeFrequency: [
+    { week: 1718409600, additions: 500, deletions: 200 },
+    { week: 1719014400, additions: 300, deletions: 100 },
+  ],
+  codeFrequencyIsCalculated: false,
+  contributors: [
+    {
+      author: 'gaearon',
+      avatar: 'https://avatars.githubusercontent.com/u/810438',
+      total: 1500,
+      weeks: [{ week: 1718409600, additions: 200, deletions: 50, commits: 10 }],
+    },
+    {
+      author: 'acdlite',
+      avatar: '',
+      total: 800,
+      weeks: [],
+    },
+  ],
+  totalAdditions: 342,
+  totalDeletions: 65,
+  isPrivate: false,
+  requiresAuth: false,
+}

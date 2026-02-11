@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
+import { clientEnv } from '@/lib/env'
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://repolens.io'
+const siteUrl = clientEnv.NEXT_PUBLIC_SITE_URL
 
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
@@ -9,6 +10,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1.0,
+    },
+    {
+      url: `${siteUrl}/dashboard`,
+      lastModified: new Date(),
+      changeFrequency: 'daily',
+      priority: 0.8,
     },
   ]
 }

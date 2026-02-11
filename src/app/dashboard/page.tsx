@@ -1,21 +1,29 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense, useRef } from 'react'
+import { useState, useCallback, Suspense } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
+import useSWR from 'swr'
 import { ArrowLeft, Search } from 'lucide-react'
-import {
-  Header,
-  Footer,
-  RepoInput,
-  UserReposList,
-  ParticleBackground,
-  LoadingSkeleton,
-} from '@/components'
+import Header from '@/components/layout/Header'
+import Footer from '@/components/layout/Footer'
+import RepoInput from '@/components/ui/RepoInput'
+import UserReposList from '@/components/features/repos/UserReposList'
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton'
 import type { UserRepo } from '@/types'
 
-// Cache TTL: 5 minutes
-const CACHE_TTL = 5 * 60 * 1000
+const ParticleBackground = dynamic(
+  () => import('@/components/effects/ParticleBackground'),
+  { ssr: false }
+)
+
+const reposFetcher = async (url: string) => {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error('Failed to fetch repos')
+  const data = await res.json()
+  return (data.repos || []) as UserRepo[]
+}
 
 function DashboardContent() {
   const { status } = useSession()
@@ -24,52 +32,21 @@ function DashboardContent() {
   const [error, setError] = useState<string | null>(null)
   const [showSearch, setShowSearch] = useState(false)
 
-  // Cached user repos state
-  const [userRepos, setUserRepos] = useState<UserRepo[]>([])
-  const [reposLoading, setReposLoading] = useState(false)
-  const [reposError, setReposError] = useState<string | null>(null)
-  const reposFetchedAtRef = useRef<number | null>(null)
-  const hasFetchedRef = useRef(false)
-
-  // Fetch repos function - stable reference
-  const fetchUserRepos = useCallback(async (force = false) => {
-    if (status !== 'authenticated') return
-    
-    // Prevent duplicate fetches
-    if (!force && hasFetchedRef.current) return
-    if (!force && reposFetchedAtRef.current && Date.now() - reposFetchedAtRef.current < CACHE_TTL) {
-      return
-    }
-
-    setReposLoading(true)
-    setReposError(null)
-    hasFetchedRef.current = true
-
-    try {
-      const res = await fetch('/api/user/repos')
-      if (!res.ok) throw new Error('Failed to fetch repos')
-      const data = await res.json()
-      setUserRepos(data.repos || [])
-      reposFetchedAtRef.current = Date.now()
-    } catch (err) {
-      setReposError(err instanceof Error ? err.message : 'Failed to load repositories')
-      hasFetchedRef.current = false // Allow retry on error
-    } finally {
-      setReposLoading(false)
-    }
-  }, [status])
-
-  // Fetch repos when authenticated - only once
-  useEffect(() => {
-    if (status === 'authenticated' && !hasFetchedRef.current) {
-      fetchUserRepos()
-    }
-  }, [status, fetchUserRepos])
+  // SWR replaces manual ref-based caching with built-in dedup, stale-while-revalidate, and error retry
+  const {
+    data: userRepos = [],
+    error: reposError,
+    isLoading: reposLoading,
+    mutate: refreshRepos,
+  } = useSWR(
+    status === 'authenticated' ? '/api/user/repos' : null,
+    reposFetcher,
+    { dedupingInterval: 5 * 60 * 1000 } // 5 minute dedup (matches old CACHE_TTL)
+  )
 
   const handleRefreshRepos = useCallback(() => {
-    hasFetchedRef.current = false
-    fetchUserRepos(true)
-  }, [fetchUserRepos])
+    refreshRepos()
+  }, [refreshRepos])
 
   const analyzeRepo = async (url: string) => {
     setLoading(true)
@@ -115,7 +92,7 @@ function DashboardContent() {
     <main className="min-h-screen animated-gradient relative">
       <ParticleBackground />
       <Header />
-      
+
       <div className="pt-20 px-4 sm:px-6 lg:px-8 pb-16 relative z-10">
         <div className="max-w-5xl mx-auto">
 
@@ -166,7 +143,7 @@ function DashboardContent() {
             <UserReposList
               repos={userRepos}
               loading={reposLoading}
-              error={reposError}
+              error={reposError?.message || null}
               onSelectRepo={handleSelectRepo}
               onRefresh={handleRefreshRepos}
             />
@@ -186,4 +163,3 @@ export default function DashboardPage() {
     </Suspense>
   )
 }
-

@@ -22,6 +22,7 @@ export default function ParticleBackground() {
   const isVisibleRef = useRef(true)
   const isMobileRef = useRef(false)
   const lastSizeRef = useRef({ width: 0, height: 0 })
+  const frameCountRef = useRef(0)
 
   const animate = useCallback(() => {
     const canvas = canvasRef.current
@@ -35,6 +36,9 @@ export default function ParticleBackground() {
     const particles = particlesRef.current
     const mouse = mouseRef.current
     const isMobile = isMobileRef.current
+    const frame = frameCountRef.current++
+    // Draw connections only on even frames — halves O(n²) work
+    const drawConnections = frame % 2 === 0
 
     // Update and draw particles
     particles.forEach((particle, i) => {
@@ -42,9 +46,10 @@ export default function ParticleBackground() {
       if (!isMobile && mouse.x > 0 && mouse.y > 0) {
         const dx = mouse.x - particle.x
         const dy = mouse.y - particle.y
-        const dist = Math.sqrt(dx * dx + dy * dy)
-        
-        if (dist < 200 && dist > 0) {
+        const distSq = dx * dx + dy * dy
+
+        if (distSq < 40000 && distSq > 0) { // 200² = 40000
+          const dist = Math.sqrt(distSq)
           const force = (200 - dist) / 200
           particle.vx += (dx / dist) * force * 0.02
           particle.vy += (dy / dist) * force * 0.02
@@ -72,23 +77,26 @@ export default function ParticleBackground() {
       ctx.globalAlpha = particle.opacity
       ctx.fill()
 
-      // Draw connections (only check particles after current one)
-      // Reduce connection checks on mobile for performance
-      const connectionLimit = isMobile ? 100 : 150
-      for (let j = i + 1; j < particles.length; j++) {
-        const other = particles[j]
-        const connDx = particle.x - other.x
-        const connDy = particle.y - other.y
-        const connDist = Math.sqrt(connDx * connDx + connDy * connDy)
+      // Draw connections on alternating frames to reduce O(n²) cost
+      if (drawConnections) {
+        const connLimitSq = isMobile ? 10000 : 22500 // 100² or 150²
+        const connLimit = isMobile ? 100 : 150
+        for (let j = i + 1; j < particles.length; j++) {
+          const other = particles[j]
+          const connDx = particle.x - other.x
+          const connDy = particle.y - other.y
+          const connDistSq = connDx * connDx + connDy * connDy
 
-        if (connDist < connectionLimit) {
-          ctx.beginPath()
-          ctx.moveTo(particle.x, particle.y)
-          ctx.lineTo(other.x, other.y)
-          ctx.strokeStyle = particle.color
-          ctx.globalAlpha = (1 - connDist / connectionLimit) * 0.15
-          ctx.lineWidth = 0.5
-          ctx.stroke()
+          if (connDistSq < connLimitSq) {
+            const connDist = Math.sqrt(connDistSq)
+            ctx.beginPath()
+            ctx.moveTo(particle.x, particle.y)
+            ctx.lineTo(other.x, other.y)
+            ctx.strokeStyle = particle.color
+            ctx.globalAlpha = (1 - connDist / connLimit) * 0.15
+            ctx.lineWidth = 0.5
+            ctx.stroke()
+          }
         }
       }
     })
@@ -98,6 +106,10 @@ export default function ParticleBackground() {
   }, [])
 
   useEffect(() => {
+    // Skip animation entirely for users who prefer reduced motion
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (prefersReducedMotion) return
+
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -113,8 +125,8 @@ export default function ParticleBackground() {
       canvas.height = window.innerHeight
       
       const particleCount = Math.min(
-        isMobile ? 40 : 100,
-        Math.floor(window.innerWidth / 15)
+        isMobile ? 25 : 60,
+        Math.floor(window.innerWidth / 20)
       )
       
       particlesRef.current = Array.from({ length: particleCount }, () => ({
@@ -195,8 +207,10 @@ export default function ParticleBackground() {
   return (
     <canvas
       ref={canvasRef}
+      role="presentation"
+      aria-hidden="true"
       className="fixed inset-0 pointer-events-none z-0"
-      style={{ 
+      style={{
         background: 'transparent',
         willChange: 'transform',
       }}

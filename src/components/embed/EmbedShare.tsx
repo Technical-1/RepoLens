@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Code, Copy, Check, ExternalLink, X } from 'lucide-react'
 
 interface EmbedShareProps {
@@ -26,7 +26,7 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   const [owner, repo] = repoFullName.split('/')
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://repolens.io'
 
-  const buildEmbedUrl = (type: EmbedType) => {
+  const buildEmbedUrl = useCallback((type: EmbedType) => {
     const params = new URLSearchParams({
       owner,
       repo,
@@ -36,16 +36,31 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
       params.set('hideRepoName', 'true')
     }
     return `${baseUrl}/api/embed/${type}?${params.toString()}`
-  }
+  }, [owner, repo, theme, hideRepoName, baseUrl])
 
-  const embedUrls: Record<EmbedType, string> = {
+  const embedUrls = useMemo<Record<EmbedType, string>>(() => ({
     'stats': buildEmbedUrl('stats'),
     'code-stats': buildEmbedUrl('code-stats'),
     'languages': buildEmbedUrl('languages'),
-  }
+  }), [buildEmbedUrl])
 
-  const markdownCode = `[![RepoLens ${selectedType}](${embedUrls[selectedType]})](${baseUrl}/?repo=${repoFullName})`
-  const htmlCode = `<a href="${baseUrl}/?repo=${repoFullName}"><img src="${embedUrls[selectedType]}" alt="RepoLens ${selectedType}" /></a>`
+  const markdownCode = useMemo(
+    () => `[![RepoLens ${selectedType}](${embedUrls[selectedType]})](${baseUrl}/?repo=${repoFullName})`,
+    [selectedType, embedUrls, baseUrl, repoFullName]
+  )
+  const htmlCode = useMemo(
+    () => `<a href="${baseUrl}/?repo=${repoFullName}"><img src="${embedUrls[selectedType]}" alt="RepoLens ${selectedType}" /></a>`,
+    [selectedType, embedUrls, baseUrl, repoFullName]
+  )
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
 
   const copyToClipboard = async (text: string, field: string) => {
     try {
@@ -66,8 +81,16 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-20 bg-black/60 backdrop-blur-sm">
-      <div className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[calc(100vh-6rem)] overflow-y-auto">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 pt-20 bg-black/60 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="embed-dialog-title"
+        className="glass-card rounded-xl border border-github-border/50 w-full max-w-2xl max-h-[calc(100vh-6rem)] overflow-y-auto"
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-github-border/50">
           <div className="flex items-center gap-3">
@@ -75,12 +98,13 @@ export default function EmbedShare({ repoFullName, onClose }: EmbedShareProps) {
               <Code className="w-5 h-5 text-github-accent" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-white">Embed in README</h2>
+              <h2 id="embed-dialog-title" className="text-xl font-semibold text-white">Embed in README</h2>
               <p className="text-sm text-github-muted">Add stats to your repository README</p>
             </div>
           </div>
           <button
             onClick={onClose}
+            aria-label="Close embed dialog"
             className="p-2 hover:bg-github-border/50 rounded-lg transition-colors text-github-muted hover:text-white"
           >
             <X className="w-5 h-5" />

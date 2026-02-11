@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
 import { formatBytes } from '@/lib/format'
@@ -12,10 +12,16 @@ interface LanguageBreakdownProps {
 export default function LanguageBreakdown({ data }: LanguageBreakdownProps) {
   const [showAll, setShowAll] = useState(false)
 
-  const totalBytes = data.languagePercentages.reduce((sum, l) => sum + l.bytes, 0)
-  const displayedLanguages = showAll 
-    ? data.languagePercentages 
-    : data.languagePercentages.slice(0, 4)
+  const totalBytes = useMemo(
+    () => data.languagePercentages.reduce((sum, l) => sum + l.bytes, 0),
+    [data.languagePercentages]
+  )
+
+  const displayedLanguages = useMemo(
+    () => showAll ? data.languagePercentages : data.languagePercentages.slice(0, 4),
+    [showAll, data.languagePercentages]
+  )
+
   const hasMore = data.languagePercentages.length > 4
 
   return (

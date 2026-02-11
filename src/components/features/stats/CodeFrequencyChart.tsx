@@ -40,6 +40,8 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
       return
     }
 
+    const abortController = new AbortController()
+
     // Progressive backoff intervals: 3s, 6s, 12s, 24s, 48s (total ~93s)
     const getBackoffDelay = (attempt: number) => {
       const baseDelay = 3000
@@ -47,18 +49,20 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
     }
 
     const poll = async () => {
+      if (abortController.signal.aborted) return
       setIsPolling(true)
-      
+
       try {
         const res = await fetch('/api/repo/stats', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ owner, repo, type: 'codeFrequency' }),
+          signal: abortController.signal,
         })
 
         if (res.ok) {
           const result = await res.json()
-          
+
           // Check if stats are marked as unavailable (e.g., too many commits)
           if (result.unavailable) {
             setIsUnavailable(true)
@@ -66,14 +70,14 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
             setIsPolling(false)
             return
           }
-          
+
           // Check if data is ready
           if (result.data && result.data.length > 0) {
             setLocalData(result.data)
             setIsPolling(false)
             return
           }
-          
+
           // If computing, continue polling
           if (result.computing) {
             pollCountRef.current += 1
@@ -95,7 +99,9 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
         } else {
           setIsPolling(false)
         }
-      } catch {
+      } catch (error) {
+        // Ignore abort errors — expected on unmount
+        if (error instanceof DOMException && error.name === 'AbortError') return
         // Network error - try again with backoff
         pollCountRef.current += 1
         if (pollCountRef.current < maxPolls) {
@@ -111,6 +117,7 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
     timeoutRef.current = setTimeout(poll, 3000)
 
     return () => {
+      abortController.abort()
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current)
       }

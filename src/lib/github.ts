@@ -30,9 +30,11 @@ interface GitHubRepoResponse {
   private: boolean
 }
 
+import { clientEnv } from "@/lib/env"
+
 // Cloudflare Worker proxy for authenticated GitHub API calls
 // This provides 5,000/hr rate limits for unauthenticated users
-const GITHUB_PROXY_URL = process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
+const GITHUB_PROXY_URL = clientEnv.NEXT_PUBLIC_GITHUB_PROXY_URL
 
 // Server-side header for proxy authentication (matches worker config)
 const SERVER_SECRET_HEADER = 'X-RepoLens-Server'
@@ -86,8 +88,6 @@ async function fetchRESTViaProxy<T = unknown>(path: string): Promise<{ data: T; 
   return { data, headers: response.headers }
 }
 
-// Export for potential future use
-export { fetchRESTViaProxy }
 
 // GraphQL query for fetching commits with stats in a single request
 const COMMITS_QUERY = `

@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { ChevronDown, ChevronUp, Plus, Minus, GitCommit } from 'lucide-react'
-import type { FullRepoAnalysis } from '@/types'
+import type { FullRepoAnalysis, ContributorStats } from '@/types'
 import Image from 'next/image'
 import { formatNumber } from '@/lib/format'
 
@@ -10,30 +10,52 @@ interface ContributorsListProps {
   data: FullRepoAnalysis
 }
 
+function getContributorStats(contributor: ContributorStats) {
+  if (!contributor.weeks || contributor.weeks.length === 0) {
+    return { additions: 0, deletions: 0, hasWeeklyData: false }
+  }
+  const totals = contributor.weeks.reduce(
+    (acc, week) => ({
+      additions: acc.additions + week.additions,
+      deletions: acc.deletions + week.deletions,
+    }),
+    { additions: 0, deletions: 0 }
+  )
+  return { ...totals, hasWeeklyData: true }
+}
+
 export default function ContributorsList({ data }: ContributorsListProps) {
   const [showAll, setShowAll] = useState(false)
 
-  // Sort by total commits
-  const sortedContributors = [...data.contributors].sort((a, b) => b.total - a.total)
-  const displayedContributors = showAll
-    ? sortedContributors
-    : sortedContributors.slice(0, 10)
+  const sortedContributors = useMemo(
+    () => [...data.contributors].sort((a, b) => b.total - a.total),
+    [data.contributors]
+  )
 
-  const maxCommits = sortedContributors[0]?.total || 1
+  const displayedContributors = useMemo(
+    () => showAll ? sortedContributors : sortedContributors.slice(0, 10),
+    [showAll, sortedContributors]
+  )
 
-  // Calculate total additions/deletions per contributor
-  const getContributorStats = (contributor: typeof sortedContributors[0]) => {
-    if (!contributor.weeks || contributor.weeks.length === 0) {
-      return { additions: 0, deletions: 0, hasWeeklyData: false }
-    }
-    const totals = contributor.weeks.reduce(
-      (acc, week) => ({
-        additions: acc.additions + week.additions,
-        deletions: acc.deletions + week.deletions,
-      }),
-      { additions: 0, deletions: 0 }
+  const maxCommits = useMemo(
+    () => sortedContributors[0]?.total || 1,
+    [sortedContributors]
+  )
+
+  if (sortedContributors.length === 0) {
+    return (
+      <div className="glass-card rounded-xl border border-github-border/50 fade-in overflow-hidden">
+        <div className="p-6 border-b border-github-border/50">
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gradient-to-r from-cyan-400 to-blue-400"></span>
+            Top Contributors
+          </h3>
+        </div>
+        <div className="p-8 text-center text-github-muted">
+          No contributor data available for this repository.
+        </div>
+      </div>
     )
-    return { ...totals, hasWeeklyData: true }
   }
 
   return (
@@ -131,6 +153,7 @@ export default function ContributorsList({ data }: ContributorsListProps) {
         <div className="p-4 border-t border-github-border/50">
           <button
             onClick={() => setShowAll(!showAll)}
+            aria-expanded={showAll}
             className="w-full py-2 text-github-link hover:text-github-text flex items-center justify-center gap-2 transition-colors"
           >
             {showAll ? (

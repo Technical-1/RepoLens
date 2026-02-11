@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Star, Lock, Globe, Search, Loader2, GitFork, RefreshCw } from 'lucide-react'
 import type { UserRepo } from '@/types'
 import { LANGUAGE_COLORS } from '@/types'
@@ -24,16 +24,19 @@ export default function UserReposList({
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'public' | 'private'>('all')
 
-  const filteredRepos = repos.filter((repo) => {
-    const matchesSearch =
-      repo.name.toLowerCase().includes(search.toLowerCase()) ||
-      repo.description?.toLowerCase().includes(search.toLowerCase())
-    const matchesFilter =
-      filter === 'all' ||
-      (filter === 'public' && !repo.private) ||
-      (filter === 'private' && repo.private)
-    return matchesSearch && matchesFilter
-  })
+  const filteredRepos = useMemo(
+    () => repos.filter((repo) => {
+      const matchesSearch =
+        repo.name.toLowerCase().includes(search.toLowerCase()) ||
+        repo.description?.toLowerCase().includes(search.toLowerCase())
+      const matchesFilter =
+        filter === 'all' ||
+        (filter === 'public' && !repo.private) ||
+        (filter === 'private' && repo.private)
+      return matchesSearch && matchesFilter
+    }),
+    [repos, search, filter]
+  )
 
   if (loading && repos.length === 0) {
     return (

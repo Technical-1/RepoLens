@@ -1,12 +1,13 @@
 'use client'
 
-import { 
-  Code, 
-  GitCommit, 
-  Plus, 
-  Minus, 
-  Star, 
-  GitFork, 
+import { useMemo } from 'react'
+import {
+  Code,
+  GitCommit,
+  Plus,
+  Minus,
+  Star,
+  GitFork,
   Eye,
   Calendar,
   Users,
@@ -21,60 +22,59 @@ interface StatsOverviewProps {
 }
 
 export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
-
-  // Generate subtext for line counts based on how many commits we analyzed
-  const commitCountText = `Last ${data.commits.length} commits`
-  
-  const stats = [
-    {
-      label: 'Total Lines',
-      value: formatNumber(data.totalLines, true),
-      subtext: commitCountText,
-      icon: Code,
-      color: 'text-blue-400',
-      bgColor: 'bg-blue-500/10',
-    },
-    {
-      label: 'Lines Added',
-      value: formatNumber(data.totalAdditions, true),
-      subtext: commitCountText,
-      icon: Plus,
-      color: 'text-green-400',
-      bgColor: 'bg-green-500/10',
-    },
-    {
-      label: 'Lines Removed',
-      value: formatNumber(data.totalDeletions, true),
-      subtext: commitCountText,
-      icon: Minus,
-      color: 'text-red-400',
-      bgColor: 'bg-red-500/10',
-    },
-    {
-      label: 'Total Commits',
-      value: formatNumber(data.totalCommits, true),
-      subtext: 'All time',
-      icon: GitCommit,
-      color: 'text-purple-400',
-      bgColor: 'bg-purple-500/10',
-    },
-    {
-      label: 'Stars',
-      value: formatNumber(data.repo.stars, true),
-      subtext: 'Repository stars',
-      icon: Star,
-      color: 'text-yellow-400',
-      bgColor: 'bg-yellow-500/10',
-    },
-    {
-      label: 'Forks',
-      value: formatNumber(data.repo.forks, true),
-      subtext: 'Repository forks',
-      icon: GitFork,
-      color: 'text-cyan-400',
-      bgColor: 'bg-cyan-500/10',
-    },
-  ]
+  const stats = useMemo(() => {
+    const commitCountText = `Last ${data.commits.length} commits`
+    return [
+      {
+        label: 'Total Lines',
+        value: formatNumber(data.totalLines, true),
+        subtext: commitCountText,
+        icon: Code,
+        color: 'text-blue-400',
+        bgColor: 'bg-blue-500/10',
+      },
+      {
+        label: 'Lines Added',
+        value: formatNumber(data.totalAdditions, true),
+        subtext: commitCountText,
+        icon: Plus,
+        color: 'text-green-400',
+        bgColor: 'bg-green-500/10',
+      },
+      {
+        label: 'Lines Removed',
+        value: formatNumber(data.totalDeletions, true),
+        subtext: commitCountText,
+        icon: Minus,
+        color: 'text-red-400',
+        bgColor: 'bg-red-500/10',
+      },
+      {
+        label: 'Total Commits',
+        value: formatNumber(data.totalCommits, true),
+        subtext: 'All time',
+        icon: GitCommit,
+        color: 'text-purple-400',
+        bgColor: 'bg-purple-500/10',
+      },
+      {
+        label: 'Stars',
+        value: formatNumber(data.repo.stars, true),
+        subtext: 'Repository stars',
+        icon: Star,
+        color: 'text-yellow-400',
+        bgColor: 'bg-yellow-500/10',
+      },
+      {
+        label: 'Forks',
+        value: formatNumber(data.repo.forks, true),
+        subtext: 'Repository forks',
+        icon: GitFork,
+        color: 'text-cyan-400',
+        bgColor: 'bg-cyan-500/10',
+      },
+    ]
+  }, [data.totalLines, data.totalAdditions, data.totalDeletions, data.totalCommits, data.repo.stars, data.repo.forks, data.commits.length])
 
   return (
     <div className="space-y-6 fade-in">

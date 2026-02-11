@@ -3,22 +3,33 @@
 import { useState, useEffect, useRef, Suspense, useCallback } from 'react'
 import { useSession, signIn } from 'next-auth/react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { Github, Lock } from 'lucide-react'
-import {
-  Header,
-  Footer,
-  RepoInput,
-  PrivacyNotice,
-  StatsOverview,
-  LanguageBreakdown,
-  CommitHistory,
-  CodeFrequencyChart,
-  ContributorsList,
-  ParticleBackground,
-  EmbedShare,
-  LoadingSkeleton,
-} from '@/components'
+import Header from '@/components/layout/Header'
+import Footer from '@/components/layout/Footer'
+import RepoInput from '@/components/ui/RepoInput'
+import PrivacyNotice from '@/components/ui/PrivacyNotice'
+import StatsOverview from '@/components/features/stats/StatsOverview'
+import LanguageBreakdown from '@/components/features/stats/LanguageBreakdown'
+import CommitHistory from '@/components/features/commits/CommitHistory'
+import ContributorsList from '@/components/features/contributors/ContributorsList'
+import LoadingSkeleton from '@/components/ui/LoadingSkeleton'
 import type { FullRepoAnalysis } from '@/types'
+
+const ParticleBackground = dynamic(
+  () => import('@/components/effects/ParticleBackground'),
+  { ssr: false }
+)
+
+const CodeFrequencyChart = dynamic(
+  () => import('@/components/features/stats/CodeFrequencyChart'),
+  { ssr: false }
+)
+
+const EmbedShare = dynamic(
+  () => import('@/components/embed/EmbedShare'),
+  { ssr: false }
+)
 
 function PublicPageContent() {
   const { data: session, status } = useSession()

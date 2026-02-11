@@ -60,6 +60,7 @@ body {
   background: rgba(22, 27, 34, 0.8);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(48, 54, 61, 0.5);
+  contain: layout style paint;
 }
 
 /* Animated gradient background */
@@ -87,6 +88,7 @@ body {
 /* Stats card hover effect */
 .stat-card {
   transition: all 0.3s ease;
+  contain: layout style paint;
 }
 
 .stat-card:hover {
@@ -181,6 +183,8 @@ input:focus {
 /* Commit row */
 .commit-row {
   transition: background-color 0.2s ease;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 72px;
 }
 
 .commit-row:hover {
@@ -260,9 +264,54 @@ input:focus {
   .stat-card {
     padding: 16px;
   }
-  
+
   .stats-table th,
   .stats-table td {
     padding: 8px 12px;
+  }
+}
+
+/* Respect reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .animated-gradient {
+    animation: none;
+  }
+
+  .fade-in {
+    animation: none;
+    opacity: 1;
+  }
+
+  .stagger-children > * {
+    animation: none;
+    opacity: 1;
+  }
+
+  .stat-card {
+    transition: none;
+  }
+
+  .stat-card:hover {
+    transform: none;
+  }
+
+  .btn-primary {
+    transition: none;
+  }
+
+  .btn-primary:hover {
+    transform: none;
+  }
+
+  .language-segment {
+    transition: none;
+  }
+
+  .commit-row {
+    transition: none;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }

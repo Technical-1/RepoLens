@@ -14,6 +14,22 @@ export default function CommitHistory({ data }: CommitHistoryProps) {
   const [showAll, setShowAll] = useState(false)
   const displayedCommits = showAll ? data.commits : data.commits.slice(0, 10)
 
+  if (data.commits.length === 0) {
+    return (
+      <div className="glass-card rounded-xl border border-github-border/50 fade-in overflow-hidden">
+        <div className="p-6 border-b border-github-border/50">
+          <h3 className="text-xl font-semibold text-white flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-gradient-to-r from-purple-400 to-pink-400"></span>
+            Commit History
+          </h3>
+        </div>
+        <div className="p-8 text-center text-github-muted">
+          No commit data available for this repository.
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="glass-card rounded-xl border border-github-border/50 fade-in overflow-hidden">
       <div className="p-6 border-b border-github-border/50">
@@ -101,6 +117,7 @@ export default function CommitHistory({ data }: CommitHistoryProps) {
         <div className="p-4 border-t border-github-border/50">
           <button
             onClick={() => setShowAll(!showAll)}
+            aria-expanded={showAll}
             className="w-full py-2 text-github-link hover:text-github-text flex items-center justify-center gap-2 transition-colors"
           >
             {showAll ? (

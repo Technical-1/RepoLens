@@ -3,19 +3,30 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import dynamic from 'next/dynamic'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import {
-  Header,
-  Footer,
-  StatsOverview,
-  LanguageBreakdown,
-  CommitHistory,
-  CodeFrequencyChart,
-  ContributorsList,
-  ParticleBackground,
-  EmbedShare,
-} from '@/components'
+import Header from '@/components/layout/Header'
+import Footer from '@/components/layout/Footer'
+import StatsOverview from '@/components/features/stats/StatsOverview'
+import LanguageBreakdown from '@/components/features/stats/LanguageBreakdown'
+import CommitHistory from '@/components/features/commits/CommitHistory'
+import ContributorsList from '@/components/features/contributors/ContributorsList'
 import type { FullRepoAnalysis } from '@/types'
+
+const ParticleBackground = dynamic(
+  () => import('@/components/effects/ParticleBackground'),
+  { ssr: false }
+)
+
+const CodeFrequencyChart = dynamic(
+  () => import('@/components/features/stats/CodeFrequencyChart'),
+  { ssr: false }
+)
+
+const EmbedShare = dynamic(
+  () => import('@/components/embed/EmbedShare'),
+  { ssr: false }
+)
 
 interface RepoPageClientProps {
   owner: string
