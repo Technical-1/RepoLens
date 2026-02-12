@@ -13,7 +13,7 @@ export async function GET() {
       )
     }
 
-    const accessToken = session.accessToken!
+    const accessToken = session.accessToken
 
     if (!accessToken) {
       return NextResponse.json(

@@ -27,7 +27,6 @@ export async function POST(request: NextRequest) {
       const cached = repoCache.get(cacheKey)
       
       if (cached) {
-        console.log(`Cache hit for: ${cacheKey}`)
         return NextResponse.json(cached.data, {
           headers: {
             'X-Cache': 'HIT',
@@ -47,8 +46,7 @@ export async function POST(request: NextRequest) {
     if (!accessToken) {
       const cacheKey = repoUrl.toLowerCase().trim()
       repoCache.set(cacheKey, result)
-      console.log(`Cached result for: ${cacheKey} (cache size: ${repoCache.size()})`)
-      
+
       return NextResponse.json(result, {
         headers: {
           'X-Cache': 'MISS',

@@ -350,11 +350,8 @@ export async function getCommitsREST(
     const commitList = allCommits.slice(0, maxCommits)
 
     if (commitList.length === 0) {
-      console.log('No commits found in repository')
       return []
     }
-
-    console.log(`Fetching details for ${commitList.length} commits via ${useProxy ? 'proxy' : 'direct'}...`)
 
     // Get detailed info for each commit (in batches to avoid overwhelming the API)
     const batchSize = 10
@@ -489,7 +486,6 @@ export async function getCommits(
         return result
       }
       // If no valid stats, fall through to REST but keep the totalCount
-      console.log('GraphQL returned commits without stats, falling back to REST')
       const restCommits = await getCommitsREST(octokit, owner, repo, 100, useProxy)
       return { commits: restCommits, totalCount: result.totalCount }
     }
@@ -581,7 +577,6 @@ export async function getCodeFrequency(
     const err = error as { status?: number }
     // 422 = Too many commits (>10k), use fallback
     if (err.status === 422 && fallbackCommits && fallbackCommits.length > 0) {
-      console.log('Using calculated code frequency from commits (repo has >10k commits)')
       return {
         data: calculateCodeFrequencyFromCommits(fallbackCommits),
         isCalculated: true,
@@ -589,7 +584,6 @@ export async function getCodeFrequency(
     }
     // For large repos via proxy, also use fallback
     if (fallbackCommits && fallbackCommits.length > 0) {
-      console.log('Using calculated code frequency from commits (fallback)')
       return {
         data: calculateCodeFrequencyFromCommits(fallbackCommits),
         isCalculated: true,
