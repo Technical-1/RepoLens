@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Plus, Minus, ChevronDown, ChevronUp, FileCode, GitCommit } from 'lucide-react'
 import type { FullRepoAnalysis } from '@/types'
 import Image from 'next/image'
@@ -12,7 +12,12 @@ interface CommitHistoryProps {
 
 export default function CommitHistory({ data }: CommitHistoryProps) {
   const [showAll, setShowAll] = useState(false)
+  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
   const displayedCommits = showAll ? data.commits : data.commits.slice(0, 10)
+
+  const handleAvatarError = useCallback((sha: string) => {
+    setFailedAvatars(prev => new Set(prev).add(sha))
+  }, [])
 
   if (data.commits.length === 0) {
     return (
@@ -51,13 +56,14 @@ export default function CommitHistory({ data }: CommitHistoryProps) {
             <div className="flex items-start gap-4">
               {/* Avatar */}
               <div className="flex-shrink-0">
-                {commit.authorAvatar ? (
+                {commit.authorAvatar && !failedAvatars.has(commit.sha) ? (
                   <Image
                     src={commit.authorAvatar}
                     alt={commit.author}
                     width={40}
                     height={40}
                     className="rounded-full"
+                    onError={() => handleAvatarError(commit.sha)}
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-github-border flex items-center justify-center">

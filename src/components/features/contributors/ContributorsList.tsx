@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { ChevronDown, ChevronUp, Plus, Minus, GitCommit } from 'lucide-react'
 import type { FullRepoAnalysis, ContributorStats } from '@/types'
 import Image from 'next/image'
@@ -26,6 +26,11 @@ function getContributorStats(contributor: ContributorStats) {
 
 export default function ContributorsList({ data }: ContributorsListProps) {
   const [showAll, setShowAll] = useState(false)
+  const [failedAvatars, setFailedAvatars] = useState<Set<string>>(new Set())
+
+  const handleAvatarError = useCallback((author: string) => {
+    setFailedAvatars(prev => new Set(prev).add(author))
+  }, [])
 
   const sortedContributors = useMemo(
     () => [...data.contributors].sort((a, b) => b.total - a.total),
@@ -87,13 +92,14 @@ export default function ContributorsList({ data }: ContributorsListProps) {
                 </div>
 
                 {/* Avatar */}
-                {contributor.avatar ? (
+                {contributor.avatar && !failedAvatars.has(contributor.author) ? (
                   <Image
                     src={contributor.avatar}
                     alt={contributor.author}
                     width={36}
                     height={36}
                     className="rounded-full"
+                    onError={() => handleAvatarError(contributor.author)}
                   />
                 ) : (
                   <div className="w-9 h-9 rounded-full bg-github-border flex items-center justify-center">

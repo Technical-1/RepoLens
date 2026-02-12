@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { useSession, signIn, signOut } from 'next-auth/react'
 import { Github, LogIn, LogOut, Loader2 } from 'lucide-react'
 import Image from 'next/image'
@@ -7,6 +8,7 @@ import Link from 'next/link'
 
 export default function Header() {
   const { data: session, status } = useSession()
+  const [avatarError, setAvatarError] = useState(false)
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-github-border/50 bg-github-darker/80 backdrop-blur-lg">
@@ -33,14 +35,21 @@ export default function Header() {
             ) : session?.user ? (
               <div className="flex items-center gap-4">
                 <div className="flex items-center gap-3">
-                  {session.user.image && (
+                  {session.user.image && !avatarError ? (
                     <Image
                       src={session.user.image}
                       alt={session.user.name || 'User'}
                       width={32}
                       height={32}
                       className="rounded-full"
+                      onError={() => setAvatarError(true)}
                     />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-github-border flex items-center justify-center">
+                      <span className="text-github-muted text-xs">
+                        {(session.user.name || 'U').charAt(0).toUpperCase()}
+                      </span>
+                    </div>
                   )}
                   <span className="text-sm text-github-text hidden sm:block">
                     {session.user.name}
