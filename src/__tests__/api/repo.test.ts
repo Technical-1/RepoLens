@@ -53,6 +53,7 @@ describe('POST /api/repo', () => {
       repo: {} as never,
       languages: {},
       totalLines: 100,
+      totalLinesIsEstimated: false,
       languagePercentages: [],
       commits: [],
       totalCommits: 0,

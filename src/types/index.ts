@@ -52,6 +52,8 @@ export interface FullRepoAnalysis {
   repo: RepoStats
   languages: LanguageStats
   totalLines: number
+  /** true when totalLines is a recent-commit estimate (code_frequency unavailable) */
+  totalLinesIsEstimated: boolean
   languagePercentages: { name: string; bytes: number; percentage: number; color: string }[]
   commits: CommitStats[]
   totalCommits: number // Accurate total from GraphQL
