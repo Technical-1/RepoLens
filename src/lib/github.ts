@@ -745,18 +745,34 @@ export async function analyzeRepo(
       }))
       .sort((a, b) => b.bytes - a.bytes)
 
-    // Calculate totals from commits
-    const totalAdditions = commits.reduce((sum, c) => sum + c.additions, 0)
-    const totalDeletions = commits.reduce((sum, c) => sum + c.deletions, 0)
+    // Prefer full code_frequency history (matches the embed widget); fall back to
+    // recent commits and flag the result as an estimate.
+    const hasFullHistory =
+      codeFrequencyResult.data.length > 0 && !codeFrequencyResult.isCalculated
 
-    // Estimate total lines (this is an approximation based on additions - deletions from recent commits)
-    // Note: GitHub API doesn't provide total LOC, so this is based on available data
-    const totalLines = totalAdditions - totalDeletions > 0 ? totalAdditions - totalDeletions : totalAdditions
+    let totalAdditions: number
+    let totalDeletions: number
+    let totalLines: number
+    let totalLinesIsEstimated: boolean
+
+    if (hasFullHistory) {
+      const summed = sumCodeFrequency(codeFrequencyResult.data)
+      totalAdditions = summed.additions
+      totalDeletions = summed.deletions
+      totalLines = summed.net
+      totalLinesIsEstimated = false
+    } else {
+      totalAdditions = commits.reduce((sum, c) => sum + c.additions, 0)
+      totalDeletions = commits.reduce((sum, c) => sum + c.deletions, 0)
+      totalLines = Math.max(totalAdditions - totalDeletions, 0) || totalAdditions
+      totalLinesIsEstimated = true
+    }
 
     return {
       repo: repoInfo,
       languages,
       totalLines,
+      totalLinesIsEstimated,
       languagePercentages,
       commits,
       totalCommits,
