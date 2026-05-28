@@ -531,6 +531,25 @@ export function calculateCodeFrequencyFromCommits(commits: CommitStats[]): CodeF
     .sort((a, b) => a.week - b.week)
 }
 
+/**
+ * Sum additions/deletions across the full code_frequency history.
+ * `net` (additions − deletions, clamped ≥ 0) approximates current lines of code.
+ * Note: code_frequency already stores deletions as positive values.
+ */
+export function sumCodeFrequency(codeFrequency: CodeFrequency[]): {
+  additions: number
+  deletions: number
+  net: number
+} {
+  let additions = 0
+  let deletions = 0
+  for (const week of codeFrequency) {
+    additions += week.additions
+    deletions += week.deletions
+  }
+  return { additions, deletions, net: Math.max(additions - deletions, 0) }
+}
+
 interface CodeFrequencyResult {
   data: CodeFrequency[]
   isCalculated: boolean

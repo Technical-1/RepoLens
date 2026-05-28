@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { parseRepoUrl } from '@/lib/github'
 import { parseLastPageFromLink } from '@/lib/github'
+import { sumCodeFrequency } from '@/lib/github'
+import type { CodeFrequency } from '@/types'
 
 describe('parseRepoUrl', () => {
   it('parses owner/repo format', () => {
@@ -70,5 +72,24 @@ describe('parseLastPageFromLink', () => {
     expect(parseLastPageFromLink(null)).toBeNull()
     expect(parseLastPageFromLink(undefined)).toBeNull()
     expect(parseLastPageFromLink('')).toBeNull()
+  })
+})
+
+describe('sumCodeFrequency', () => {
+  it('sums additions and deletions across all weeks', () => {
+    const weeks: CodeFrequency[] = [
+      { week: 1, additions: 500, deletions: 200 },
+      { week: 2, additions: 300, deletions: 100 },
+    ]
+    expect(sumCodeFrequency(weeks)).toEqual({ additions: 800, deletions: 300, net: 500 })
+  })
+
+  it('clamps net to zero when deletions exceed additions', () => {
+    const weeks: CodeFrequency[] = [{ week: 1, additions: 10, deletions: 50 }]
+    expect(sumCodeFrequency(weeks)).toEqual({ additions: 10, deletions: 50, net: 0 })
+  })
+
+  it('returns zeros for an empty array', () => {
+    expect(sumCodeFrequency([])).toEqual({ additions: 0, deletions: 0, net: 0 })
   })
 })
