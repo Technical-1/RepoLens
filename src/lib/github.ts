@@ -175,6 +175,16 @@ export function parseRepoUrl(url: string): { owner: string; repo: string } | nul
   return null
 }
 
+/**
+ * Produce a stable cache key for a repository regardless of URL form.
+ * Falls back to a normalized raw string when the input is not a valid repo URL.
+ */
+export function canonicalRepoKey(repoUrl: string): string {
+  const parsed = parseRepoUrl(repoUrl)
+  if (!parsed) return repoUrl.toLowerCase().trim()
+  return `${parsed.owner}/${parsed.repo}`.toLowerCase()
+}
+
 export async function getRepoInfo(
   octokit: Octokit,
   owner: string,

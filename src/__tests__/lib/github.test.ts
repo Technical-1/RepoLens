@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { parseRepoUrl } from '@/lib/github'
 import { parseLastPageFromLink } from '@/lib/github'
 import { sumCodeFrequency } from '@/lib/github'
+import { canonicalRepoKey } from '@/lib/github'
 import type { CodeFrequency } from '@/types'
 
 describe('parseRepoUrl', () => {
@@ -91,5 +92,19 @@ describe('sumCodeFrequency', () => {
 
   it('returns zeros for an empty array', () => {
     expect(sumCodeFrequency([])).toEqual({ additions: 0, deletions: 0, net: 0 })
+  })
+})
+
+describe('canonicalRepoKey', () => {
+  it('maps every URL variant of the same repo to one key', () => {
+    const expected = 'facebook/react'
+    expect(canonicalRepoKey('facebook/react')).toBe(expected)
+    expect(canonicalRepoKey('github.com/facebook/react')).toBe(expected)
+    expect(canonicalRepoKey('https://github.com/Facebook/React')).toBe(expected)
+    expect(canonicalRepoKey('https://github.com/facebook/react.git')).toBe(expected)
+  })
+
+  it('falls back to a normalized raw string for unparseable input', () => {
+    expect(canonicalRepoKey('  Not-A-Repo  ')).toBe('not-a-repo')
   })
 })
