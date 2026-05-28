@@ -23,12 +23,14 @@ interface StatsOverviewProps {
 
 export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
   const stats = useMemo(() => {
-    const commitCountText = `Last ${data.commits.length} commits`
+    const lineSubtext = data.totalLinesIsEstimated
+      ? `Est. from ${data.commits.length} commits`
+      : 'All time'
     return [
       {
         label: 'Total Lines',
         value: formatNumber(data.totalLines, true),
-        subtext: commitCountText,
+        subtext: lineSubtext,
         icon: Code,
         color: 'text-blue-400',
         bgColor: 'bg-blue-500/10',
@@ -36,7 +38,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
       {
         label: 'Lines Added',
         value: formatNumber(data.totalAdditions, true),
-        subtext: commitCountText,
+        subtext: lineSubtext,
         icon: Plus,
         color: 'text-green-400',
         bgColor: 'bg-green-500/10',
@@ -44,7 +46,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
       {
         label: 'Lines Removed',
         value: formatNumber(data.totalDeletions, true),
-        subtext: commitCountText,
+        subtext: lineSubtext,
         icon: Minus,
         color: 'text-red-400',
         bgColor: 'bg-red-500/10',
@@ -74,7 +76,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
         bgColor: 'bg-cyan-500/10',
       },
     ]
-  }, [data.totalLines, data.totalAdditions, data.totalDeletions, data.totalCommits, data.repo.stars, data.repo.forks, data.commits.length])
+  }, [data.totalLines, data.totalAdditions, data.totalDeletions, data.totalCommits, data.repo.stars, data.repo.forks, data.commits.length, data.totalLinesIsEstimated])
 
   return (
     <div className="space-y-6 fade-in">
@@ -155,6 +157,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
             </div>
             <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
             <div className="text-sm text-github-muted">{stat.label}</div>
+            <div className="text-xs text-github-muted/70 mt-0.5">{stat.subtext}</div>
           </div>
         ))}
       </div>

@@ -65,4 +65,15 @@ describe('StatsOverview', () => {
     const link = screen.getByText('View on GitHub')
     expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/facebook/react')
   })
+
+  it('labels line stats "All time" when not estimated', () => {
+    render(<StatsOverview data={mockRepoAnalysis} />)
+    expect(screen.getAllByText('All time').length).toBeGreaterThan(0)
+  })
+
+  it('labels line stats as estimated when totalLinesIsEstimated is true', () => {
+    const estimated = { ...mockRepoAnalysis, totalLinesIsEstimated: true }
+    render(<StatsOverview data={estimated} />)
+    expect(screen.getAllByText(/Est\. from \d+ commits/).length).toBeGreaterThan(0)
+  })
 })
