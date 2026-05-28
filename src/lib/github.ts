@@ -434,35 +434,26 @@ async function getTotalCommitCount(
   useProxy: boolean = false
 ): Promise<number> {
   try {
+    let linkHeader: string | null | undefined = null
+    let dataLength = 0
+
     if (useProxy && GITHUB_PROXY_URL) {
-      // Use proxy - check for Link header in response
       const result = await fetchRESTViaProxy<unknown[]>(
         `/repos/${owner}/${repo}/commits?per_page=1`
       )
-      // The Link header should be passed through by the proxy
-      // For now, we'll rely on GraphQL totalCount instead
-      return result.data.length || 0
+      linkHeader = result.headers.get('link')
+      dataLength = Array.isArray(result.data) ? result.data.length : 0
+    } else {
+      const response = await octokit.repos.listCommits({ owner, repo, per_page: 1 })
+      linkHeader = response.headers.link
+      dataLength = response.data.length
     }
-    
-    // Request just 1 commit to get pagination info
-    const response = await octokit.repos.listCommits({
-      owner,
-      repo,
-      per_page: 1,
-    })
-    
-    // Check for Link header with last page info
-    const linkHeader = response.headers.link
-    if (linkHeader) {
-      // Parse: <...?page=1234>; rel="last"
-      const lastMatch = linkHeader.match(/page=(\d+)>; rel="last"/)
-      if (lastMatch) {
-        return parseInt(lastMatch[1], 10)
-      }
-    }
-    
-    // If no pagination (small repo), return the length
-    return response.data.length
+
+    const lastPage = parseLastPageFromLink(linkHeader)
+    if (lastPage !== null) return lastPage
+
+    // No pagination header → small repo, the single returned commit is the count basis
+    return dataLength
   } catch (error) {
     console.warn('Could not get total commit count:', error)
     return 0
