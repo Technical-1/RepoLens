@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/auth'
-import { analyzeRepo } from '@/lib/github'
+import { analyzeRepo, canonicalRepoKey } from '@/lib/github'
 import { repoCache } from '@/lib/cache'
 import { RepoRequestSchema, formatZodError } from '@/lib/validations'
 
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     
     // For unauthenticated requests, check cache first
     if (!accessToken) {
-      const cacheKey = repoUrl.toLowerCase().trim()
+      const cacheKey = canonicalRepoKey(repoUrl)
       const cached = repoCache.get(cacheKey)
       
       if (cached) {
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     
     // Cache successful results for unauthenticated requests
     if (!accessToken) {
-      const cacheKey = repoUrl.toLowerCase().trim()
+      const cacheKey = canonicalRepoKey(repoUrl)
       repoCache.set(cacheKey, result)
 
       return NextResponse.json(result, {

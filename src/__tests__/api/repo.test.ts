@@ -6,9 +6,10 @@ vi.mock('@/auth', () => ({
   auth: vi.fn().mockResolvedValue(null),
 }))
 
-vi.mock('@/lib/github', () => ({
-  analyzeRepo: vi.fn(),
-}))
+vi.mock('@/lib/github', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/github')>()
+  return { ...actual, analyzeRepo: vi.fn() }
+})
 
 vi.mock('@/lib/cache', () => ({
   repoCache: {
@@ -90,5 +91,18 @@ describe('POST /api/repo', () => {
     expect(res.status).toBe(500)
     const json = await res.json()
     expect(json.error).toBe('Failed to analyze repository')
+  })
+
+  it('uses a canonical cache key for url variants', async () => {
+    const { repoCache } = await import('@/lib/cache')
+    vi.mocked(analyzeRepo).mockResolvedValue({
+      repo: {} as never, languages: {}, totalLines: 1, totalLinesIsEstimated: false,
+      languagePercentages: [], commits: [], totalCommits: 0, codeFrequency: [],
+      codeFrequencyIsCalculated: false, contributors: [], totalAdditions: 0,
+      totalDeletions: 0, isPrivate: false, requiresAuth: false,
+    })
+
+    await POST(makeRequest({ repoUrl: 'https://github.com/Facebook/React' }))
+    expect(vi.mocked(repoCache.set)).toHaveBeenCalledWith('facebook/react', expect.anything())
   })
 })
