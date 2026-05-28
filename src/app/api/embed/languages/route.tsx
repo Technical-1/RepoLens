@@ -1,11 +1,12 @@
 import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
 import { LANGUAGE_COLORS } from '@/types'
-import { 
-  getEmbedTheme, 
-  createErrorImageResponse, 
+import {
+  getEmbedTheme,
+  createErrorImageResponse,
   getErrorDetails,
 } from '@/lib/embed-utils'
+import { validateEmbedParams } from '@/lib/embed-validation'
 
 export const runtime = 'edge'
 
@@ -34,15 +35,15 @@ async function fetchFromProxy<T>(path: string): Promise<T> {
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
-  const owner = searchParams.get('owner')
-  const repo = searchParams.get('repo')
   const theme = searchParams.get('theme') || 'dark'
   const limit = Math.min(parseInt(searchParams.get('limit') || '6'), 10)
   const hideRepoName = searchParams.get('hideRepoName') === 'true'
 
-  if (!owner || !repo) {
-    return new Response('Missing owner or repo parameter', { status: 400 })
+  const params = validateEmbedParams(searchParams.get('owner'), searchParams.get('repo'))
+  if (!params.ok) {
+    return new Response('Invalid or missing owner/repo parameter', { status: 400 })
   }
+  const { owner, repo } = params
 
   try {
     let repoFullName = `${owner}/${repo}`
@@ -198,6 +199,6 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error'
     console.error('Embed languages error:', message)
-    return new Response(`Failed to fetch repository data: ${message}`, { status: 500 })
+    return new Response('Failed to generate languages image', { status: 500 })
   }
 }
