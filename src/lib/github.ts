@@ -180,7 +180,7 @@ export function parseRepoUrl(url: string): { owner: string; repo: string } | nul
  * Falls back to a normalized raw string when the input is not a valid repo URL.
  */
 export function canonicalRepoKey(repoUrl: string): string {
-  const parsed = parseRepoUrl(repoUrl)
+  const parsed = parseRepoUrl(repoUrl.trim())
   if (!parsed) return repoUrl.toLowerCase().trim()
   return `${parsed.owner}/${parsed.repo}`.toLowerCase()
 }
@@ -774,7 +774,7 @@ export async function analyzeRepo(
     } else {
       totalAdditions = commits.reduce((sum, c) => sum + c.additions, 0)
       totalDeletions = commits.reduce((sum, c) => sum + c.deletions, 0)
-      totalLines = Math.max(totalAdditions - totalDeletions, 0) || totalAdditions
+      totalLines = Math.max(totalAdditions - totalDeletions, 0)
       totalLinesIsEstimated = true
     }
 

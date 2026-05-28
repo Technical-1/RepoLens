@@ -107,4 +107,8 @@ describe('canonicalRepoKey', () => {
   it('falls back to a normalized raw string for unparseable input', () => {
     expect(canonicalRepoKey('  Not-A-Repo  ')).toBe('not-a-repo')
   })
+
+  it('trims surrounding whitespace before parsing', () => {
+    expect(canonicalRepoKey('  facebook/react  ')).toBe('facebook/react')
+  })
 })

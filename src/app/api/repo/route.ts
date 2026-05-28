@@ -20,12 +20,12 @@ export async function POST(request: NextRequest) {
 
     const { repoUrl } = validation.data
     const accessToken = session?.accessToken
-    
+    const cacheKey = canonicalRepoKey(repoUrl)
+
     // For unauthenticated requests, check cache first
     if (!accessToken) {
-      const cacheKey = canonicalRepoKey(repoUrl)
       const cached = repoCache.get(cacheKey)
-      
+
       if (cached) {
         return NextResponse.json(cached.data, {
           headers: {
@@ -41,10 +41,9 @@ export async function POST(request: NextRequest) {
     if ('error' in result) {
       return NextResponse.json(result, { status: result.requiresAuth ? 401 : 400 })
     }
-    
+
     // Cache successful results for unauthenticated requests
     if (!accessToken) {
-      const cacheKey = canonicalRepoKey(repoUrl)
       repoCache.set(cacheKey, result)
 
       return NextResponse.json(result, {
