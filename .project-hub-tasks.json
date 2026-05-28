@@ -1,0 +1,55 @@
+{
+  "tasks": [
+    {
+      "title": "Fix JSON-LD XSS: escape user-derived owner/name before dangerouslySetInnerHTML",
+      "description": "In src/app/repo/[owner]/[name]/page.tsx:39, the JSON-LD object built from URL params (owner/name) is injected via dangerouslySetInnerHTML using JSON.stringify(jsonLd). JSON.stringify does NOT escape the '</script>' sequence, so a crafted route segment can break out of the <script> tag and inject markup (reflected XSS). After stringifying in src/lib/structured-data.ts (getRepoPageJsonLd), replace '<' with '\\u003c' (and ideally '>' and '&') before rendering.",
+      "priority": "high"
+    },
+    {
+      "title": "Fix wildly inaccurate 'total lines of code' computed from only ~100 commits",
+      "description": "In src/lib/github.ts:734, totalLines = totalAdditions - totalDeletions where those totals come from only the last ~100 commits (getCommits caps at 100). This is the app's headline metric yet is meaningless for any repo with history. Worse, the embed widget (src/app/api/embed/code-stats/route.tsx) sums the full code_frequency history, so the website and the badge show different numbers for the same repo. Use the code_frequency totals (or document it as an estimate) so both paths agree.",
+      "priority": "high"
+    },
+    {
+      "title": "Stop fabricating commit count in code-stats embed widget",
+      "description": "In src/app/api/embed/code-stats/route.tsx:96, when participation stats are unavailable the commit count is faked as 'codeFreqData.length * 2' and rendered as a real 'Commits' stat embedded in users' READMEs. The fallback at line 108 uses only the sampled commit page length. Derive commit count from a reliable source (Link-header pagination on the commits endpoint or GraphQL totalCount) or omit the stat rather than display an invented value.",
+      "priority": "high"
+    },
+    {
+      "title": "Validate owner/repo query params in all /api/embed routes",
+      "description": "src/app/api/embed/stats/route.tsx, languages/route.tsx, and code-stats/route.tsx read 'owner' and 'repo' from searchParams and interpolate them directly into the proxy fetch path (e.g. `/repos/${owner}/${repo}`) with no validation, unlike /api/repo which uses Zod. This allows path/query injection (e.g. 'repo=react?foo=bar' or '../') against the GitHub proxy. Add a shared Zod schema matching GitHub's username/repo grammar and reject invalid input with 400.",
+      "priority": "medium"
+    },
+    {
+      "title": "Fix incorrect total commit count for proxied unauthenticated fallback",
+      "description": "In src/lib/github.ts:420 getTotalCommitCount, the proxy branch requests `/commits?per_page=1` and returns `result.data.length || 0`, which is at most 1. So unauthenticated users without GraphQL stats see a total commit count of 1. Parse the Link header's rel=\"last\" page number (as the non-proxy branch does) by having the proxy expose it, or fall back to the GraphQL totalCount.",
+      "priority": "medium"
+    },
+    {
+      "title": "Normalize repo cache key so URL variants hit the same cache entry",
+      "description": "In src/app/api/repo/route.ts:26 and :47 the cache key is the raw repoUrl lowercased/trimmed. The same repository requested as 'owner/repo', 'github.com/owner/repo', and 'https://github.com/owner/repo' produces three distinct keys, causing redundant GitHub API calls and inconsistent X-Cache behavior. Parse the URL with parseRepoUrl() and key the cache on the canonical `owner/repo` string instead.",
+      "priority": "medium"
+    },
+    {
+      "title": "code-stats embed makes up to 50 sequential commit-detail calls, likely tripping rate limits",
+      "description": "In src/app/api/embed/code-stats/route.tsx:112-124, when code_frequency is unavailable the route fetches detailed stats for up to 50 commits via the unauthenticated proxy (60 req/hr). This frequently exhausts the limit and renders the error image, so the widget the README advertises will often fail for active repos. Reduce the sample size, rely on code_frequency/participation only, or cache aggressively to stay within unauthenticated limits.",
+      "priority": "medium"
+    },
+    {
+      "title": "Avoid leaking internal error details in embed route 500 responses",
+      "description": "src/app/api/embed/stats/route.tsx:167 (and the analogous lines in languages/route.tsx:201 and code-stats/route.tsx:240) return `Failed to fetch repository data: ${message}` to the client, where message is a raw Error string that can include proxy/GitHub status details. Return a generic message to clients and keep the detailed message in console.error only.",
+      "priority": "low"
+    },
+    {
+      "title": "README claims tokens are never stored, but the OAuth access token is persisted in the JWT",
+      "description": "src/auth.ts:18-27 copies account.access_token into the NextAuth JWT and exposes it on the session, while README.md and PrivacyNotice state tokens are never stored and exist 'only in your browser session'. The encrypted JWT cookie is effectively a stored token. Either clarify the privacy copy to describe the encrypted-cookie storage accurately or adjust the token-handling approach to match the claim.",
+      "priority": "low"
+    },
+    {
+      "title": "formatBytes/formatNumber label decimal (1000-based) units as KB/MB",
+      "description": "In src/lib/format.ts:20-24, formatBytes divides by 1000/1000000 but labels the result 'KB'/'MB', which conventionally denote 1024-based units. This understates sizes versus what GitHub reports. Either switch to 1024-based math or relabel as 'kB'/'MB' (SI) consistently to avoid misleading size displays.",
+      "priority": "low"
+    }
+  ],
+  "summary": "Found 10 issues: 1 security vulnerability (JSON-LD XSS), 3 data-accuracy bugs (total lines, fabricated commit count, broken proxy commit count), 3 robustness/validation improvements (embed input validation, cache key normalization, embed rate-limit risk), and 3 lower-priority concerns (error leakage, privacy-claim mismatch, unit labeling)."
+}
