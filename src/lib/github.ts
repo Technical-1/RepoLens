@@ -149,6 +149,16 @@ interface CommitsResult {
   totalCount: number
 }
 
+/**
+ * Parse the `page=N>; rel="last"` value out of a GitHub Link header.
+ * Returns null when the header is absent or has no last-page segment.
+ */
+export function parseLastPageFromLink(linkHeader: string | null | undefined): number | null {
+  if (!linkHeader) return null
+  const match = linkHeader.match(/[?&]page=(\d+)>;\s*rel="last"/)
+  return match ? parseInt(match[1], 10) : null
+}
+
 export function parseRepoUrl(url: string): { owner: string; repo: string } | null {
   // Handle various GitHub URL formats
   const patterns = [

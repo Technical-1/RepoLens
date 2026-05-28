@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseRepoUrl } from '@/lib/github'
+import { parseLastPageFromLink } from '@/lib/github'
 
 describe('parseRepoUrl', () => {
   it('parses owner/repo format', () => {
@@ -50,5 +51,24 @@ describe('parseRepoUrl', () => {
   it('handles repos with dots and hyphens', () => {
     expect(parseRepoUrl('vercel/next.js')).toEqual({ owner: 'vercel', repo: 'next.js' })
     expect(parseRepoUrl('my-org/my-repo')).toEqual({ owner: 'my-org', repo: 'my-repo' })
+  })
+})
+
+describe('parseLastPageFromLink', () => {
+  it('extracts the last page number from a GitHub Link header', () => {
+    const link =
+      '<https://api.github.com/repositories/1/commits?per_page=1&page=2>; rel="next", ' +
+      '<https://api.github.com/repositories/1/commits?per_page=1&page=4821>; rel="last"'
+    expect(parseLastPageFromLink(link)).toBe(4821)
+  })
+
+  it('returns null when there is no rel="last" segment', () => {
+    expect(parseLastPageFromLink('<https://api.github.com/x?page=2>; rel="next"')).toBeNull()
+  })
+
+  it('returns null for empty / missing headers', () => {
+    expect(parseLastPageFromLink(null)).toBeNull()
+    expect(parseLastPageFromLink(undefined)).toBeNull()
+    expect(parseLastPageFromLink('')).toBeNull()
   })
 })
