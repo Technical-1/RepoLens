@@ -4,6 +4,7 @@ import { parseLastPageFromLink } from '@/lib/github'
 import { sumCodeFrequency } from '@/lib/github'
 import { canonicalRepoKey } from '@/lib/github'
 import { getCommitsGraphQL } from '@/lib/github'
+import { estimateCoversFullHistory } from '@/lib/github'
 import type { CodeFrequency } from '@/types'
 
 describe('parseRepoUrl', () => {
@@ -205,5 +206,22 @@ describe('canonicalRepoKey', () => {
 
   it('trims surrounding whitespace before parsing', () => {
     expect(canonicalRepoKey('  facebook/react  ')).toBe('facebook/react')
+  })
+})
+
+describe('estimateCoversFullHistory', () => {
+  it('is true when commits covered reaches the total count', () => {
+    expect(estimateCoversFullHistory(2500, 2500)).toBe(true)
+    expect(estimateCoversFullHistory(2500, 2000)).toBe(true) // covered exceeds (defensive)
+  })
+
+  it('is false when more history exists beyond what we covered', () => {
+    expect(estimateCoversFullHistory(2500, 50000)).toBe(false)
+    expect(estimateCoversFullHistory(100, 200)).toBe(false)
+  })
+
+  it('is false when the total count is unknown (zero)', () => {
+    expect(estimateCoversFullHistory(2500, 0)).toBe(false)
+    expect(estimateCoversFullHistory(0, 0)).toBe(false)
   })
 })

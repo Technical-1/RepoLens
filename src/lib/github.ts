@@ -607,6 +607,18 @@ export function sumCodeFrequency(codeFrequency: CodeFrequency[]): {
   return { additions, deletions, net: Math.max(additions - deletions, 0) }
 }
 
+/**
+ * Whether a commit-derived estimate spans the repo's entire history.
+ * True only when we have a known total and covered at least that many commits;
+ * a zero/unknown total is treated as "not full" so we stay honest and labeled.
+ */
+export function estimateCoversFullHistory(
+  commitsCovered: number,
+  totalCount: number
+): boolean {
+  return totalCount > 0 && commitsCovered >= totalCount
+}
+
 interface CodeFrequencyResult {
   data: CodeFrequency[]
   isCalculated: boolean
