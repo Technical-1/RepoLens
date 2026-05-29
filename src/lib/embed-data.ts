@@ -16,6 +16,63 @@ async function proxyFetch<T>(path: string): Promise<T> {
   return res.json() as Promise<T>
 }
 
+// Single GraphQL request: accurate total commit count plus recent-commit
+// additions/deletions used as a lines fallback when code_frequency is empty.
+const COMMIT_TOTALS_QUERY = `
+  query($owner: String!, $repo: String!, $first: Int!) {
+    repository(owner: $owner, name: $repo) {
+      defaultBranchRef {
+        target {
+          ... on Commit {
+            history(first: $first) {
+              totalCount
+              nodes { additions deletions }
+            }
+          }
+        }
+      }
+    }
+  }
+`
+
+interface CommitTotals {
+  totalCount: number
+  additions: number
+  deletions: number
+}
+
+async function fetchCommitTotalsGraphQL(owner: string, repo: string): Promise<CommitTotals | null> {
+  const base = getProxyUrl()
+  if (!base) return null
+  const res = await fetch(`${base}/github/graphql`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-RepoLens-Server': 'repolens-server-request',
+    },
+    body: JSON.stringify({ query: COMMIT_TOTALS_QUERY, variables: { owner, repo, first: 100 } }),
+  })
+  if (!res.ok) return null
+  const json = (await res.json()) as {
+    data?: {
+      repository?: {
+        defaultBranchRef?: {
+          target?: { history?: { totalCount?: number; nodes?: Array<{ additions?: number; deletions?: number }> } }
+        } | null
+      }
+    }
+  }
+  const history = json?.data?.repository?.defaultBranchRef?.target?.history
+  if (!history) return null
+  let additions = 0
+  let deletions = 0
+  for (const node of history.nodes || []) {
+    additions += node.additions || 0
+    deletions += node.deletions || 0
+  }
+  return { totalCount: history.totalCount || 0, additions, deletions }
+}
+
 export interface CodeStatsData {
   fullName: string
   totalAdditions: number
@@ -28,9 +85,14 @@ export interface CodeStatsData {
 
 /**
  * Gather code-stats for the embed widget using at most 3 proxy calls:
- * repo info, participation (commit count), and code_frequency (line totals).
- * No per-commit detail loop, and no fabricated values — availability is reported
- * via flags so the caller can render "—" instead of a made-up number.
+ * repo info, code_frequency (accurate full-history lines), and a single GraphQL
+ * call (commit totalCount + recent-commit additions/deletions).
+ *
+ * Lines: prefer the full code_frequency history; when GitHub hasn't computed it
+ * yet (202/empty) or refuses it (422, >10k commits), fall back to the GraphQL
+ * recent-commit sum — the same estimate the main /api/repo page shows, so the
+ * widget and the page stay consistent. Renders "—" only when both sources fail.
+ * No per-commit detail loop, no fabricated values.
  */
 export async function getCodeStatsData(owner: string, repo: string): Promise<CodeStatsData> {
   // Defense in depth: even though callers validate owner/repo, percent-encode the
@@ -40,34 +102,36 @@ export async function getCodeStatsData(owner: string, repo: string): Promise<Cod
 
   const repoData = await proxyFetch<{ full_name: string }>(`/repos/${o}/${r}`)
 
+  const [cfSettled, gqlSettled] = await Promise.allSettled([
+    proxyFetch<number[][]>(`/repos/${o}/${r}/stats/code_frequency`),
+    fetchCommitTotalsGraphQL(owner, repo),
+  ])
+
+  const graphql = gqlSettled.status === 'fulfilled' ? gqlSettled.value : null
+  const cf = cfSettled.status === 'fulfilled' ? cfSettled.value : null
+
+  // Commit count: GraphQL totalCount is accurate across full history.
   let commitCount = 0
   let commitCountAvailable = false
-  try {
-    const participation = await proxyFetch<{ all: number[] }>(
-      `/repos/${o}/${r}/stats/participation`
-    )
-    if (participation && Array.isArray(participation.all)) {
-      commitCount = participation.all.reduce((sum, week) => sum + week, 0)
-      commitCountAvailable = true
-    }
-  } catch {
-    // leave commit count unavailable
+  if (graphql && graphql.totalCount > 0) {
+    commitCount = graphql.totalCount
+    commitCountAvailable = true
   }
 
+  // Lines: accurate full history if available, else recent-commit estimate.
   let totalAdditions = 0
   let totalDeletions = 0
   let linesAvailable = false
-  try {
-    const cf = await proxyFetch<number[][]>(`/repos/${o}/${r}/stats/code_frequency`)
-    if (Array.isArray(cf) && cf.length > 0) {
-      for (const week of cf) {
-        totalAdditions += week[1] || 0
-        totalDeletions += Math.abs(week[2] || 0)
-      }
-      linesAvailable = true
+  if (Array.isArray(cf) && cf.length > 0) {
+    for (const week of cf) {
+      totalAdditions += week[1] || 0
+      totalDeletions += Math.abs(week[2] || 0)
     }
-  } catch {
-    // leave line stats unavailable
+    linesAvailable = true
+  } else if (graphql && (graphql.additions > 0 || graphql.deletions > 0)) {
+    totalAdditions = graphql.additions
+    totalDeletions = graphql.deletions
+    linesAvailable = true
   }
 
   return {
