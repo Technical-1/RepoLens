@@ -25,7 +25,8 @@ describe('LanguageBreakdown', () => {
   it('renders total code size', () => {
     render(<LanguageBreakdown data={mockRepoAnalysis} />)
     expect(screen.getByText('Total code size')).toBeInTheDocument()
-    expect(screen.getByText('7.5 MB')).toBeInTheDocument()
+    // 7,500,000 bytes / 1024^2 = 7.2 MB (1024-based formatBytes)
+    expect(screen.getByText('7.2 MB')).toBeInTheDocument()
   })
 
   it('shows "Show All" button when more than 4 languages', () => {
