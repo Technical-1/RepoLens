@@ -14,19 +14,19 @@ export default function PrivacyNotice() {
             Your Privacy is Protected
           </h3>
           <p className="text-github-muted text-sm leading-relaxed mb-4">
-            We never store your login credentials, personal information, or access tokens. 
-            All authentication happens directly with GitHub&apos;s secure OAuth system. Your data 
-            is only used in real-time to display repository statistics and is never saved 
-            to any database.
+            We never sell your data or save it to a database. Authentication happens directly
+            with GitHub&apos;s secure OAuth system; your session — including the GitHub access
+            token — is kept only in an encrypted, http-only cookie in your browser and is used
+            in real time to display repository statistics.
           </p>
           <ul className="space-y-2 text-sm">
             <li className="flex items-center gap-2 text-github-muted">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-              OAuth tokens stay in your browser session only
+              OAuth token kept only in an encrypted browser session cookie
             </li>
             <li className="flex items-center gap-2 text-github-muted">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>
-              No server-side storage of credentials
+              No database storage of credentials or tokens
             </li>
             <li className="flex items-center gap-2 text-github-muted">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400"></span>

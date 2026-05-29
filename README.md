@@ -66,13 +66,13 @@ Widgets are cached for 1 hour on CDN to ensure fast loading and reduce API usage
 
 ## Privacy & Security
 
-**Your data is never stored.** This application:
+**Your data is never sold or saved to a database.** This application:
 
 - Uses GitHub OAuth for secure authentication
 - Never saves login credentials or access tokens to any database
-- Tokens exist only in your browser session
+- Holds the access token only in an encrypted, http-only session cookie in your browser (standard NextAuth session) — not in any server-side store
 - All API calls go directly to GitHub
-- Sign out anytime to revoke access
+- Sign out anytime to clear the session and revoke access
 
 ## Host It Yourself
 
