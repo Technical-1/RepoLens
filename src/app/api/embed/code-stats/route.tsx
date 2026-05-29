@@ -12,7 +12,7 @@ import { getCodeStatsData } from '@/lib/embed-data'
 
 export const runtime = 'edge'
 
-const IMAGE_WIDTH = 720
+const IMAGE_WIDTH = 760
 const IMAGE_HEIGHT_FULL = 260
 const IMAGE_HEIGHT_COMPACT = 160
 
@@ -105,8 +105,8 @@ export async function GET(request: NextRequest) {
             style={{
               display: 'flex',
               flexDirection: 'row',
-              gap: 24,
-              justifyContent: hideRepoName ? 'center' : 'flex-start',
+              gap: 16,
+              width: '100%',
             }}
           >
             {stats.map((stat) => (
@@ -119,11 +119,13 @@ export async function GET(request: NextRequest) {
                   justifyContent: 'center',
                   backgroundColor: themeColors.cardBg,
                   borderRadius: 12,
-                  padding: '20px 28px',
-                  minWidth: 130,
+                  padding: '20px 12px',
+                  flexGrow: 1,
+                  flexBasis: 0,
+                  minWidth: 0,
                 }}
               >
-                <span style={{ fontSize: 36, fontWeight: 700, color: stat.color }}>{stat.value}</span>
+                <span style={{ fontSize: 34, fontWeight: 700, color: stat.color, whiteSpace: 'nowrap' }}>{stat.value}</span>
                 <span style={{ fontSize: 14, color: themeColors.muted, marginTop: 4 }}>{stat.label}</span>
               </div>
             ))}
