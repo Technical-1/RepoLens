@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
 
   try {
     let repoFullName = `${owner}/${repo}`
-    let stats: StatItem[]
+    let stats: StatItem[] = []
 
     try {
       const data = await getCodeStatsData(owner, repo)
