@@ -54,7 +54,7 @@ export interface FullRepoAnalysis {
   totalLines: number
   /** true when totalLines is a recent-commit estimate (code_frequency unavailable) */
   totalLinesIsEstimated: boolean
-  /** Number of commits the totalLines estimate is based on (meaningful only when totalLinesIsEstimated). */
+  /** Number of commits the line totals are derived from on the commit-estimate path; 0 when full code_frequency history is available. */
   totalLinesCommitsCovered: number
   languagePercentages: { name: string; bytes: number; percentage: number; color: string }[]
   commits: CommitStats[]

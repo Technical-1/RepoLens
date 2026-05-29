@@ -24,7 +24,7 @@ export const mockRepoAnalysis: FullRepoAnalysis = {
   },
   totalLines: 250000,
   totalLinesIsEstimated: false,
-  totalLinesCommitsCovered: 100,
+  totalLinesCommitsCovered: 0,
   languagePercentages: [
     { name: 'JavaScript', bytes: 5000000, percentage: 66.7, color: '#f1e05a' },
     { name: 'TypeScript', bytes: 2000000, percentage: 26.7, color: '#3178c6' },
