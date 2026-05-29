@@ -1,5 +1,17 @@
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://repolens.io'
 
+/**
+ * Serialize an object to JSON safe for embedding in an inline <script> tag.
+ * Escapes <, >, and & to their \u escapes so a "</script>" substring in any
+ * user-derived value cannot terminate the script element (reflected XSS).
+ */
+export function safeJsonLd(data: unknown): string {
+  return JSON.stringify(data)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+}
+
 export function getWebApplicationJsonLd() {
   return {
     '@context': 'https://schema.org',
