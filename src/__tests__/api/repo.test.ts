@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import type { Session } from 'next-auth'
+
+// `auth` from NextAuth v5 is an overloaded function; cast it to its no-arg
+// session signature so vi.mocked picks the overload that accepts null.
+type AuthSessionFn = () => Promise<Session | null>
 
 // Mock auth before importing the route
 vi.mock('@/auth', () => ({
@@ -34,7 +39,7 @@ function makeRequest(body: unknown) {
 describe('POST /api/repo', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(auth).mockResolvedValue(null)
+    vi.mocked(auth as unknown as AuthSessionFn).mockResolvedValue(null)
   })
 
   it('returns 400 for missing repoUrl', async () => {
