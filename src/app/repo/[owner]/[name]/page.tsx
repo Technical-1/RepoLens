@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import RepoPageClient from './RepoPageClient'
-import { getRepoPageJsonLd } from '@/lib/structured-data'
+import { getRepoPageJsonLd, safeJsonLd } from '@/lib/structured-data'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://repolens.io'
 
@@ -36,7 +36,7 @@ export default async function RepoPage({ params }: RepoPageProps) {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
       />
       <RepoPageClient owner={owner} name={name} />
     </>

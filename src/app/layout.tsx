@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { SessionProvider } from 'next-auth/react'
 import { auth } from '@/auth'
-import { getWebApplicationJsonLd } from '@/lib/structured-data'
+import { getWebApplicationJsonLd, safeJsonLd } from '@/lib/structured-data'
 import './globals.css'
 
 const inter = Inter({
@@ -109,7 +109,7 @@ export default async function RootLayout({
       <body className="antialiased font-sans">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
         />
         <SessionProvider session={session}>{children}</SessionProvider>
       </body>
