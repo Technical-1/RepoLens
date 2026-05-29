@@ -814,6 +814,10 @@ export async function analyzeRepo(
     // Deepen that estimate by paging history (cursor-based, no commit-depth cap).
     // REST stays primary; this only runs on the genuine fallback path, and never
     // clobbers the "still computing" (202/empty) path that the chart polls for.
+    // How many commits the estimate spans. Starts at the display list (100) and
+    // grows when we deepen via paginated GraphQL on the fallback path.
+    let estimateCommitsCovered = commits.length
+
     if (codeFrequencyResult.isCalculated && (accessToken || GITHUB_PROXY_URL)) {
       const deep = await getCommitsGraphQL(accessToken, owner, repo, MAX_FALLBACK_COMMITS)
       if (deep.commits.length > commits.length) {
@@ -821,6 +825,7 @@ export async function analyzeRepo(
           data: calculateCodeFrequencyFromCommits(deep.commits),
           isCalculated: true,
         }
+        estimateCommitsCovered = deep.commits.length
       }
     }
 
@@ -836,7 +841,7 @@ export async function analyzeRepo(
       .sort((a, b) => b.bytes - a.bytes)
 
     // Prefer full code_frequency history (matches the embed widget); fall back to
-    // recent commits and flag the result as an estimate.
+    // the deepened commit-derived estimate and flag it unless it covers everything.
     const hasFullHistory =
       codeFrequencyResult.data.length > 0 && !codeFrequencyResult.isCalculated
 
@@ -844,6 +849,7 @@ export async function analyzeRepo(
     let totalDeletions: number
     let totalLines: number
     let totalLinesIsEstimated: boolean
+    let totalLinesCommitsCovered = 0
 
     if (hasFullHistory) {
       const summed = sumCodeFrequency(codeFrequencyResult.data)
@@ -852,10 +858,22 @@ export async function analyzeRepo(
       totalLines = summed.net
       totalLinesIsEstimated = false
     } else {
-      totalAdditions = commits.reduce((sum, c) => sum + c.additions, 0)
-      totalDeletions = commits.reduce((sum, c) => sum + c.deletions, 0)
-      totalLines = Math.max(totalAdditions - totalDeletions, 0)
-      totalLinesIsEstimated = true
+      // Sum the deepened code_frequency we already fetched (up to 2,500 commits),
+      // not just the 100 commits in the display list. Fall back to the display
+      // list only if that calculated data is empty.
+      if (codeFrequencyResult.data.length > 0) {
+        const summed = sumCodeFrequency(codeFrequencyResult.data)
+        totalAdditions = summed.additions
+        totalDeletions = summed.deletions
+        totalLines = summed.net
+      } else {
+        totalAdditions = commits.reduce((sum, c) => sum + c.additions, 0)
+        totalDeletions = commits.reduce((sum, c) => sum + c.deletions, 0)
+        totalLines = Math.max(totalAdditions - totalDeletions, 0)
+      }
+      totalLinesCommitsCovered = estimateCommitsCovered
+      // If the estimate now spans the whole repo, it is no longer an estimate.
+      totalLinesIsEstimated = !estimateCoversFullHistory(estimateCommitsCovered, totalCommits)
     }
 
     return {
@@ -863,6 +881,7 @@ export async function analyzeRepo(
       languages,
       totalLines,
       totalLinesIsEstimated,
+      totalLinesCommitsCovered,
       languagePercentages,
       commits,
       totalCommits,
