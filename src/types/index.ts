@@ -61,6 +61,8 @@ export interface FullRepoAnalysis {
   totalCommits: number // Accurate total from GraphQL
   codeFrequency: CodeFrequency[]
   codeFrequencyIsCalculated: boolean // true if calculated from commits (large repos >10k)
+  /** true when GitHub's full-history series is still pending (202/empty) and the client should poll to upgrade */
+  codeFrequencyPending: boolean
   contributors: ContributorStats[]
   totalAdditions: number
   totalDeletions: number

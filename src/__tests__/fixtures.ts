@@ -58,6 +58,7 @@ export const mockRepoAnalysis: FullRepoAnalysis = {
     { week: 1719014400, additions: 300, deletions: 100 },
   ],
   codeFrequencyIsCalculated: false,
+  codeFrequencyPending: false,
   contributors: [
     {
       author: 'gaearon',

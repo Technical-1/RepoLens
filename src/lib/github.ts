@@ -619,6 +619,30 @@ export function estimateCoversFullHistory(
   return totalCount > 0 && commitsCovered >= totalCount
 }
 
+/**
+ * GitHub serves /stats/code_frequency lazily: the first request for an uncached
+ * repo returns 202 (computing) or an empty series, which would otherwise leave
+ * the chart stuck on "Statistics unavailable". When that happens and we already
+ * hold commits with real per-commit line stats, derive a stand-in series so the
+ * chart renders immediately. `wasEmpty` lets the caller decide whether the client
+ * should keep polling for GitHub's full-history series.
+ */
+export function deriveCodeFrequencyFallback(
+  serverData: CodeFrequency[],
+  serverIsCalculated: boolean,
+  commits: CommitStats[]
+): { data: CodeFrequency[]; isCalculated: boolean; wasEmpty: boolean } {
+  const wasEmpty = serverData.length === 0 && !serverIsCalculated
+  if (wasEmpty && commits.some((c) => c.additions > 0 || c.deletions > 0)) {
+    return {
+      data: calculateCodeFrequencyFromCommits(commits),
+      isCalculated: true,
+      wasEmpty,
+    }
+  }
+  return { data: serverData, isCalculated: serverIsCalculated, wasEmpty }
+}
+
 interface CodeFrequencyResult {
   data: CodeFrequency[]
   isCalculated: boolean
@@ -805,17 +829,24 @@ export async function analyzeRepo(
 
     const { commits, totalCount: totalCommits } = commitsResult
 
-    // Get code frequency with fallback to calculated data for large repos
-    let codeFrequencyResult = await getCodeFrequency(octokit, owner, repo, commits, useProxy)
+    // Get code frequency. GitHub serves /stats/code_frequency lazily: large repos
+    // (>10k commits) get HTTP 422, and uncached repos return 202/empty while it
+    // computes. getCodeFrequency already derives from commits on 422;
+    // deriveCodeFrequencyFallback does the same for the 202/empty case so the chart
+    // renders immediately instead of stalling on "Statistics unavailable".
+    const rawCodeFrequency = await getCodeFrequency(octokit, owner, repo, commits, useProxy)
+    const codeFrequencyFallback = deriveCodeFrequencyFallback(
+      rawCodeFrequency.data,
+      rawCodeFrequency.isCalculated,
+      commits
+    )
+    let codeFrequencyResult: CodeFrequencyResult = {
+      data: codeFrequencyFallback.data,
+      isCalculated: codeFrequencyFallback.isCalculated,
+    }
 
-    // When GitHub can't serve full code_frequency (large repos → HTTP 422),
-    // getCodeFrequency returns a commit-derived estimate capped at the 100-commit
-    // display fetch, which truncates the chart to the most recent ~100 commits.
-    // Deepen that estimate by paging history (cursor-based, no commit-depth cap).
-    // REST stays primary; this only runs on the genuine fallback path, and never
-    // clobbers the "still computing" (202/empty) path that the chart polls for.
-    // How many commits the estimate spans. Starts at the display list (100) and
-    // grows when we deepen via paginated GraphQL on the fallback path.
+    // How many commits the estimate spans. Starts at the display list (≤100) and
+    // grows when we deepen via paginated GraphQL on any commit-derived path.
     let estimateCommitsCovered = commits.length
 
     if (codeFrequencyResult.isCalculated && (accessToken || GITHUB_PROXY_URL)) {
@@ -828,6 +859,13 @@ export async function analyzeRepo(
         estimateCommitsCovered = deep.commits.length
       }
     }
+
+    // Ask the client to keep polling for GitHub's full-history series only when it
+    // is still pending (202/empty) AND our commit-derived stand-in doesn't already
+    // cover the whole repo. Small repos render complete data and skip polling.
+    const codeFrequencyPending =
+      codeFrequencyFallback.wasEmpty &&
+      !estimateCoversFullHistory(estimateCommitsCovered, totalCommits)
 
     // Calculate language percentages
     const totalBytes = Object.values(languages).reduce((sum, bytes) => sum + bytes, 0)
@@ -887,6 +925,7 @@ export async function analyzeRepo(
       totalCommits,
       codeFrequency: codeFrequencyResult.data,
       codeFrequencyIsCalculated: codeFrequencyResult.isCalculated,
+      codeFrequencyPending,
       contributors,
       totalAdditions,
       totalDeletions,

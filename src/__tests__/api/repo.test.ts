@@ -66,6 +66,7 @@ describe('POST /api/repo', () => {
       totalCommits: 0,
       codeFrequency: [],
       codeFrequencyIsCalculated: false,
+      codeFrequencyPending: false,
       contributors: [],
       totalAdditions: 0,
       totalDeletions: 0,
@@ -105,7 +106,7 @@ describe('POST /api/repo', () => {
       repo: {} as never, languages: {}, totalLines: 1, totalLinesIsEstimated: false,
       totalLinesCommitsCovered: 0,
       languagePercentages: [], commits: [], totalCommits: 0, codeFrequency: [],
-      codeFrequencyIsCalculated: false, contributors: [], totalAdditions: 0,
+      codeFrequencyIsCalculated: false, codeFrequencyPending: false, contributors: [], totalAdditions: 0,
       totalDeletions: 0, isPrivate: false, requiresAuth: false,
     })
 

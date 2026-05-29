@@ -5,7 +5,8 @@ import { sumCodeFrequency } from '@/lib/github'
 import { canonicalRepoKey } from '@/lib/github'
 import { getCommitsGraphQL } from '@/lib/github'
 import { estimateCoversFullHistory } from '@/lib/github'
-import type { CodeFrequency } from '@/types'
+import { deriveCodeFrequencyFallback } from '@/lib/github'
+import type { CodeFrequency, CommitStats } from '@/types'
 
 describe('parseRepoUrl', () => {
   it('parses owner/repo format', () => {
@@ -223,5 +224,55 @@ describe('estimateCoversFullHistory', () => {
   it('is false when the total count is unknown (zero)', () => {
     expect(estimateCoversFullHistory(2500, 0)).toBe(false)
     expect(estimateCoversFullHistory(0, 0)).toBe(false)
+  })
+})
+
+describe('deriveCodeFrequencyFallback', () => {
+  const commit = (additions: number, deletions: number): CommitStats => ({
+    sha: 'x',
+    message: 'm',
+    author: 'a',
+    authorAvatar: '',
+    date: '2024-06-15T10:00:00Z',
+    additions,
+    deletions,
+    files: 1,
+  })
+
+  it('derives commit data when GitHub returned an empty series and commits have line stats', () => {
+    const result = deriveCodeFrequencyFallback([], false, [commit(40, 10), commit(5, 0)])
+    expect(result.isCalculated).toBe(true)
+    expect(result.wasEmpty).toBe(true)
+    expect(result.data.length).toBeGreaterThan(0)
+  })
+
+  it('flags wasEmpty but does not fabricate data when commits have no line stats', () => {
+    const result = deriveCodeFrequencyFallback([], false, [commit(0, 0)])
+    expect(result.isCalculated).toBe(false)
+    expect(result.wasEmpty).toBe(true)
+    expect(result.data).toEqual([])
+  })
+
+  it('flags wasEmpty with no commits at all', () => {
+    const result = deriveCodeFrequencyFallback([], false, [])
+    expect(result.isCalculated).toBe(false)
+    expect(result.wasEmpty).toBe(true)
+    expect(result.data).toEqual([])
+  })
+
+  it('passes through a real GitHub series unchanged (not empty)', () => {
+    const real: CodeFrequency[] = [{ week: 1, additions: 500, deletions: 200 }]
+    const result = deriveCodeFrequencyFallback(real, false, [commit(40, 10)])
+    expect(result.isCalculated).toBe(false)
+    expect(result.wasEmpty).toBe(false)
+    expect(result.data).toBe(real)
+  })
+
+  it('passes through already-calculated data (422 path) unchanged', () => {
+    const calc: CodeFrequency[] = [{ week: 1, additions: 10, deletions: 5 }]
+    const result = deriveCodeFrequencyFallback(calc, true, [commit(40, 10)])
+    expect(result.isCalculated).toBe(true)
+    expect(result.wasEmpty).toBe(false)
+    expect(result.data).toBe(calc)
   })
 })

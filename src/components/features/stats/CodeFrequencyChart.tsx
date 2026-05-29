@@ -20,10 +20,14 @@ interface CodeFrequencyChartProps {
 
 export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
   const [localData, setLocalData] = useState<CodeFrequency[]>(data.codeFrequency)
+  const [isCalculated, setIsCalculated] = useState(data.codeFrequencyIsCalculated)
+  const [upgraded, setUpgraded] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
   const [isUnavailable, setIsUnavailable] = useState(false)
   const [unavailableReason, setUnavailableReason] = useState<string | null>(null)
-  const isCalculated = data.codeFrequencyIsCalculated
+  // GitHub's full-history series may still be computing; when pending we poll to
+  // upgrade our commit-derived stand-in. Complete data sets this false (no poll).
+  const pending = data.codeFrequencyPending
   const pollCountRef = useRef(0)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
   const maxPolls = 5 // Poll up to 5 times with backoff
@@ -35,8 +39,10 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
   const repo = match?.[2]
 
   useEffect(() => {
-    // If we have data (including calculated), stats are unavailable, or no repo info, don't poll
-    if (localData.length > 0 || isUnavailable || isCalculated || !owner || !repo) {
+    // Poll for GitHub's full-history series only while it's pending and we haven't
+    // upgraded yet. When a commit-derived stand-in is already shown this runs
+    // silently in the background and swaps in the real series when it arrives.
+    if (!pending || upgraded || isUnavailable || !owner || !repo) {
       return
     }
 
@@ -71,9 +77,11 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
             return
           }
 
-          // Check if data is ready
+          // GitHub's full-history series is ready — upgrade and stop polling.
           if (result.data && result.data.length > 0) {
             setLocalData(result.data)
+            setIsCalculated(false)
+            setUpgraded(true)
             setIsPolling(false)
             return
           }
@@ -122,7 +130,7 @@ export default function CodeFrequencyChart({ data }: CodeFrequencyChartProps) {
         clearTimeout(timeoutRef.current)
       }
     }
-  }, [localData.length, owner, repo, isUnavailable, isCalculated])
+  }, [pending, upgraded, owner, repo, isUnavailable])
 
   // Transform data for the chart - only show last 52 weeks
   const chartData = localData
