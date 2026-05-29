@@ -54,13 +54,22 @@ export const metadata: Metadata = {
     siteName: 'RepoLens',
     locale: 'en_US',
     type: 'website',
-    images: [{ url: '/og-image.png', width: 1200, height: 630 }],
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        type: 'image/png',
+        alt: 'RepoLens — GitHub Repository Stats Analyzer',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'RepoLens - GitHub Repository Stats Analyzer',
     description:
       'Analyze any GitHub repository with detailed insights into lines of code, language breakdown, commit history, and contributor statistics.',
+    images: ['/og-image.png'],
   },
   robots: {
     index: true,

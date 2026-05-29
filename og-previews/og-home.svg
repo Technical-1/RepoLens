@@ -1,0 +1,132 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica Neue, Helvetica, Arial, sans-serif">
+  <defs>
+    <!-- Base canvas gradient -->
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1117"/>
+      <stop offset="1" stop-color="#010409"/>
+    </linearGradient>
+
+    <!-- Brand-color glows -->
+    <radialGradient id="glowBlue" cx="0.18" cy="-0.10" r="0.6">
+      <stop offset="0" stop-color="#58a6ff" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#58a6ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowPurple" cx="1.0" cy="0.28" r="0.65">
+      <stop offset="0" stop-color="#a371f7" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#a371f7" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowPink" cx="0.78" cy="1.1" r="0.6">
+      <stop offset="0" stop-color="#f778ba" stop-opacity="0.26"/>
+      <stop offset="1" stop-color="#f778ba" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowGreen" cx="0.02" cy="1.08" r="0.55">
+      <stop offset="0" stop-color="#238636" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#238636" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Tri-color brand gradient (text + hairline) -->
+    <linearGradient id="brandGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58a6ff"/>
+      <stop offset="0.5" stop-color="#a371f7"/>
+      <stop offset="1" stop-color="#f778ba"/>
+    </linearGradient>
+
+    <!-- Logo gradient -->
+    <linearGradient id="logoGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2ea043"/>
+      <stop offset="1" stop-color="#238636"/>
+    </linearGradient>
+
+    <!-- Dot grid pattern -->
+    <pattern id="dots" width="34" height="34" patternUnits="userSpaceOnUse">
+      <circle cx="17" cy="17" r="1.5" fill="#30363d" fill-opacity="0.6"/>
+    </pattern>
+    <!-- Luminance mask to fade the grid toward edges -->
+    <radialGradient id="gridFade" cx="0.5" cy="0.45" r="0.62">
+      <stop offset="0.35" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#000000"/>
+    </radialGradient>
+    <mask id="gridMask">
+      <rect width="1200" height="630" fill="url(#gridFade)"/>
+    </mask>
+
+    <!-- Soft glow for logo -->
+    <filter id="logoGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feDropShadow dx="0" dy="14" stdDeviation="26" flood-color="#238636" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <!-- Background layers -->
+  <rect width="1200" height="630" fill="url(#canvas)"/>
+  <g mask="url(#gridMask)">
+    <rect width="1200" height="630" fill="url(#dots)"/>
+  </g>
+  <rect width="1200" height="630" fill="url(#glowBlue)"/>
+  <rect width="1200" height="630" fill="url(#glowPurple)"/>
+  <rect width="1200" height="630" fill="url(#glowPink)"/>
+  <rect width="1200" height="630" fill="url(#glowGreen)"/>
+
+  <!-- Scattered "active contribution" cells -->
+  <rect x="150" y="92"  width="22" height="22" rx="6" fill="#58a6ff" fill-opacity="0.5"/>
+  <rect x="1012" y="150" width="22" height="22" rx="6" fill="#a371f7" fill-opacity="0.5"/>
+  <rect x="120" y="470" width="22" height="22" rx="6" fill="#2ea043" fill-opacity="0.4"/>
+  <rect x="1030" y="500" width="22" height="22" rx="6" fill="#f778ba" fill-opacity="0.5"/>
+  <rect x="230" y="520" width="22" height="22" rx="6" fill="#58a6ff" fill-opacity="0.35"/>
+  <rect x="540" y="60"  width="22" height="22" rx="6" fill="#2ea043" fill-opacity="0.35"/>
+
+  <!-- Top hairline accent -->
+  <rect x="0" y="0" width="1200" height="4" fill="url(#brandGrad)" fill-opacity="0.9"/>
+
+  <!-- Brand row: logo + wordmark, centered -->
+  <g transform="translate(346, 130)">
+    <!-- Logo -->
+    <g filter="url(#logoGlow)">
+      <rect x="0" y="0" width="112" height="112" rx="28" fill="url(#logoGrad)"/>
+      <rect x="0" y="0" width="112" height="112" rx="28" fill="none" stroke="#3fb950" stroke-opacity="0.5" stroke-width="1.5"/>
+    </g>
+    <!-- Magnifier icon -->
+    <g transform="translate(28, 28)" stroke="#ffffff" stroke-width="6" fill="none" stroke-linecap="round">
+      <circle cx="22" cy="22" r="16"/>
+      <line x1="34" y1="34" x2="50" y2="50"/>
+    </g>
+    <!-- Wordmark -->
+    <text x="146" y="86" font-size="90" font-weight="800" letter-spacing="-3" fill="#ffffff">RepoLens</text>
+  </g>
+
+  <!-- Gradient subtitle -->
+  <text x="600" y="330" text-anchor="middle" font-size="46" font-weight="700" letter-spacing="-1" fill="url(#brandGrad)">GitHub Repository Stats Analyzer</text>
+
+  <!-- Tagline -->
+  <text x="600" y="392" text-anchor="middle" font-size="25" fill="#8b949e">Lines of code  •  Language breakdown  •  Commit history  •  Contributors</text>
+
+  <!-- Feature tags -->
+  <g font-size="22" font-weight="500" fill="#c9d1d9">
+    <!-- Languages -->
+    <g transform="translate(285, 440)">
+      <rect width="170" height="58" rx="14" fill="#161b22" fill-opacity="0.8" stroke="#30363d"/>
+      <circle cx="30" cy="29" r="7" fill="#58a6ff"/>
+      <text x="50" y="37">Languages</text>
+    </g>
+    <!-- Commits -->
+    <g transform="translate(471, 440)">
+      <rect width="150" height="58" rx="14" fill="#161b22" fill-opacity="0.8" stroke="#30363d"/>
+      <circle cx="30" cy="29" r="7" fill="#a371f7"/>
+      <text x="50" y="37">Commits</text>
+    </g>
+    <!-- Contributors -->
+    <g transform="translate(637, 440)">
+      <rect width="190" height="58" rx="14" fill="#161b22" fill-opacity="0.8" stroke="#30363d"/>
+      <circle cx="30" cy="29" r="7" fill="#2ea043"/>
+      <text x="50" y="37">Contributors</text>
+    </g>
+    <!-- Code Stats -->
+    <g transform="translate(843, 440)">
+      <rect width="172" height="58" rx="14" fill="#161b22" fill-opacity="0.8" stroke="#30363d"/>
+      <circle cx="30" cy="29" r="7" fill="#f778ba"/>
+      <text x="50" y="37">Code Stats</text>
+    </g>
+  </g>
+
+  <!-- Domain -->
+  <text x="600" y="585" text-anchor="middle" font-size="19" font-family="JetBrains Mono, ui-monospace, monospace" fill="#8b949e" letter-spacing="0.5"><tspan fill="#2ea043">&gt; </tspan>repolens.io</text>
+</svg>
