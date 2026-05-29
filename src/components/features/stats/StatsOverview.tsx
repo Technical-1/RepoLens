@@ -62,7 +62,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
       {
         label: 'Stars',
         value: formatNumber(data.repo.stars, true),
-        subtext: 'Repository stars',
+        subtext: '',
         icon: Star,
         color: 'text-yellow-400',
         bgColor: 'bg-yellow-500/10',
@@ -70,7 +70,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
       {
         label: 'Forks',
         value: formatNumber(data.repo.forks, true),
-        subtext: 'Repository forks',
+        subtext: '',
         icon: GitFork,
         color: 'text-cyan-400',
         bgColor: 'bg-cyan-500/10',
@@ -157,7 +157,9 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
             </div>
             <div className="text-2xl font-bold text-white mb-1">{stat.value}</div>
             <div className="text-sm text-github-muted">{stat.label}</div>
-            <div className="text-xs text-github-muted/70 mt-0.5">{stat.subtext}</div>
+            {stat.subtext && (
+              <div className="text-xs text-github-muted/70 mt-0.5">{stat.subtext}</div>
+            )}
           </div>
         ))}
       </div>
