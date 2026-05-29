@@ -33,13 +33,18 @@ export interface CodeStatsData {
  * via flags so the caller can render "—" instead of a made-up number.
  */
 export async function getCodeStatsData(owner: string, repo: string): Promise<CodeStatsData> {
-  const repoData = await proxyFetch<{ full_name: string }>(`/repos/${owner}/${repo}`)
+  // Defense in depth: even though callers validate owner/repo, percent-encode the
+  // path segments so a stray character can never alter the proxy URL structure.
+  const o = encodeURIComponent(owner)
+  const r = encodeURIComponent(repo)
+
+  const repoData = await proxyFetch<{ full_name: string }>(`/repos/${o}/${r}`)
 
   let commitCount = 0
   let commitCountAvailable = false
   try {
     const participation = await proxyFetch<{ all: number[] }>(
-      `/repos/${owner}/${repo}/stats/participation`
+      `/repos/${o}/${r}/stats/participation`
     )
     if (participation && Array.isArray(participation.all)) {
       commitCount = participation.all.reduce((sum, week) => sum + week, 0)
@@ -53,7 +58,7 @@ export async function getCodeStatsData(owner: string, repo: string): Promise<Cod
   let totalDeletions = 0
   let linesAvailable = false
   try {
-    const cf = await proxyFetch<number[][]>(`/repos/${owner}/${repo}/stats/code_frequency`)
+    const cf = await proxyFetch<number[][]>(`/repos/${o}/${r}/stats/code_frequency`)
     if (Array.isArray(cf) && cf.length > 0) {
       for (const week of cf) {
         totalAdditions += week[1] || 0

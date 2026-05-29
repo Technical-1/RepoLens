@@ -15,6 +15,13 @@ describe('validateEmbedParams', () => {
     expect(validateEmbedParams('facebook', 'react/stats').ok).toBe(false)
   })
 
+  it('rejects bare dot and dot-dot segments (endpoint confusion)', () => {
+    expect(validateEmbedParams('..', 'react').ok).toBe(false)
+    expect(validateEmbedParams('facebook', '..').ok).toBe(false)
+    expect(validateEmbedParams('.', 'react').ok).toBe(false)
+    expect(validateEmbedParams('foo..bar', 'react').ok).toBe(false)
+  })
+
   it('rejects query injection characters', () => {
     expect(validateEmbedParams('facebook', 'react?foo=bar').ok).toBe(false)
     expect(validateEmbedParams('a b', 'react').ok).toBe(false)

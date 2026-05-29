@@ -44,15 +44,18 @@ export async function GET(request: NextRequest) {
     return new Response('Invalid or missing owner/repo parameter', { status: 400 })
   }
   const { owner, repo } = params
+  // Defense in depth: percent-encode validated segments before building the proxy path.
+  const o = encodeURIComponent(owner)
+  const r = encodeURIComponent(repo)
 
   try {
     let repoFullName = `${owner}/${repo}`
     let languages: { name: string; percentage: number; color: string }[] = []
-    
+
     try {
       const [repoData, langData] = await Promise.all([
-        fetchFromProxy<{ full_name: string }>(`/repos/${owner}/${repo}`),
-        fetchFromProxy<Record<string, number>>(`/repos/${owner}/${repo}/languages`),
+        fetchFromProxy<{ full_name: string }>(`/repos/${o}/${r}`),
+        fetchFromProxy<Record<string, number>>(`/repos/${o}/${r}/languages`),
       ])
       repoFullName = repoData.full_name
       

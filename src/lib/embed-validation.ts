@@ -1,12 +1,22 @@
 import { z } from 'zod'
 
 // GitHub logins and repo names: alphanumerics plus . _ - only.
-// Blocks "/", "?", "..", whitespace → no path/query injection against the proxy.
+// The charclass blocks "/", "?", and whitespace; the refinement additionally
+// rejects "." / ".." and any embedded ".." so a dot-segment cannot reorder the
+// proxy path (SSRF / endpoint confusion). ".github"-style names stay valid.
 const NAME = /^[A-Za-z0-9._-]+$/
+const noTraversal = (v: string) => v !== '.' && v !== '..' && !v.includes('..')
+
+const namePart = z
+  .string()
+  .min(1)
+  .max(100)
+  .regex(NAME)
+  .refine(noTraversal, 'Path traversal sequences are not allowed')
 
 export const EmbedParamsSchema = z.object({
-  owner: z.string().min(1).max(100).regex(NAME),
-  repo: z.string().min(1).max(100).regex(NAME),
+  owner: namePart,
+  repo: namePart,
 })
 
 export type EmbedValidationResult =

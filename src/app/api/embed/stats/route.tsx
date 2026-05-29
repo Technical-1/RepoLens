@@ -52,11 +52,14 @@ export async function GET(request: NextRequest) {
     return new Response('Invalid or missing owner/repo parameter', { status: 400 })
   }
   const { owner, repo } = params
+  // Defense in depth: percent-encode validated segments before building the proxy path.
+  const o = encodeURIComponent(owner)
+  const r = encodeURIComponent(repo)
 
   try {
     let data: RepoData
     try {
-      data = await fetchFromProxy<RepoData>(`/repos/${owner}/${repo}`)
+      data = await fetchFromProxy<RepoData>(`/repos/${o}/${r}`)
     } catch (apiError: unknown) {
       const message = apiError instanceof Error ? apiError.message : 'Unknown error'
       console.error('GitHub API error:', message)
