@@ -1,8 +1,9 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { parseRepoUrl } from '@/lib/github'
 import { parseLastPageFromLink } from '@/lib/github'
 import { sumCodeFrequency } from '@/lib/github'
 import { canonicalRepoKey } from '@/lib/github'
+import { getCommitsGraphQL } from '@/lib/github'
 import type { CodeFrequency } from '@/types'
 
 describe('parseRepoUrl', () => {
@@ -92,6 +93,100 @@ describe('sumCodeFrequency', () => {
 
   it('returns zeros for an empty array', () => {
     expect(sumCodeFrequency([])).toEqual({ additions: 0, deletions: 0, net: 0 })
+  })
+})
+
+describe('getCommitsGraphQL pagination', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  // Build a fake GraphQL `history` page response.
+  const makeNode = (i: number) => ({
+    oid: `sha${i}`,
+    message: `commit ${i}\nbody`,
+    committedDate: '2024-01-01T00:00:00Z',
+    author: { name: 'Author', avatarUrl: '' },
+    additions: 2,
+    deletions: 1,
+    changedFilesIfAvailable: 1,
+  })
+
+  const makePage = (
+    count: number,
+    { hasNextPage, endCursor, totalCount }: { hasNextPage: boolean; endCursor: string | null; totalCount: number }
+  ) => ({
+    ok: true,
+    json: async () => ({
+      data: {
+        repository: {
+          defaultBranchRef: {
+            target: {
+              history: {
+                totalCount,
+                pageInfo: { hasNextPage, endCursor },
+                nodes: Array.from({ length: count }, (_, i) => makeNode(i)),
+              },
+            },
+          },
+        },
+      },
+    }),
+  })
+
+  // Pull the `variables` out of a recorded fetch call's request body.
+  const variablesOf = (call: unknown[]) =>
+    JSON.parse((call[1] as { body: string }).body).variables as {
+      first: number
+      after: string | null
+    }
+
+  it('fetches a single page by default (count=100) and never requests more', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(makePage(100, { hasNextPage: true, endCursor: 'C1', totalCount: 5000 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await getCommitsGraphQL('token', 'owner', 'repo')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(res.commits).toHaveLength(100)
+    expect(res.totalCount).toBe(5000)
+    expect(variablesOf(fetchMock.mock.calls[0]).first).toBe(100)
+  })
+
+  it('paginates with cursors up to the requested depth, capping page size at 100', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makePage(100, { hasNextPage: true, endCursor: 'C1', totalCount: 5000 }))
+      .mockResolvedValueOnce(makePage(100, { hasNextPage: true, endCursor: 'C2', totalCount: 5000 }))
+      .mockResolvedValueOnce(makePage(50, { hasNextPage: true, endCursor: 'C3', totalCount: 5000 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await getCommitsGraphQL('token', 'owner', 'repo', 250)
+
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(res.commits).toHaveLength(250)
+    expect(res.totalCount).toBe(5000)
+
+    // Page 1: no cursor, full page. Page 2: after C1. Page 3: after C2, only 50 left.
+    expect(variablesOf(fetchMock.mock.calls[0])).toMatchObject({ first: 100, after: null })
+    expect(variablesOf(fetchMock.mock.calls[1])).toMatchObject({ first: 100, after: 'C1' })
+    expect(variablesOf(fetchMock.mock.calls[2])).toMatchObject({ first: 50, after: 'C2' })
+  })
+
+  it('stops early when history is exhausted (hasNextPage=false)', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makePage(100, { hasNextPage: true, endCursor: 'C1', totalCount: 160 }))
+      .mockResolvedValueOnce(makePage(60, { hasNextPage: false, endCursor: null, totalCount: 160 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const res = await getCommitsGraphQL('token', 'owner', 'repo', 2500)
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(res.commits).toHaveLength(160)
+    expect(res.totalCount).toBe(160)
   })
 })
 

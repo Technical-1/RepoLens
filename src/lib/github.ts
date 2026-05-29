@@ -89,15 +89,21 @@ async function fetchRESTViaProxy<T = unknown>(path: string): Promise<{ data: T; 
 }
 
 
-// GraphQL query for fetching commits with stats in a single request
+// GraphQL query for fetching a page of commits with stats.
+// `first` is capped at 100 by GitHub; deeper history is fetched by paging
+// with the `after` cursor (see getCommitsGraphQL).
 const COMMITS_QUERY = `
-  query($owner: String!, $repo: String!, $first: Int!) {
+  query($owner: String!, $repo: String!, $first: Int!, $after: String) {
     repository(owner: $owner, name: $repo) {
       defaultBranchRef {
         target {
           ... on Commit {
-            history(first: $first) {
+            history(first: $first, after: $after) {
               totalCount
+              pageInfo {
+                hasNextPage
+                endCursor
+              }
               nodes {
                 oid
                 message
@@ -131,14 +137,20 @@ interface GraphQLCommitNode {
   changedFilesIfAvailable: number | null
 }
 
+interface CommitHistoryPage {
+  totalCount: number
+  pageInfo: {
+    hasNextPage: boolean
+    endCursor: string | null
+  }
+  nodes: GraphQLCommitNode[]
+}
+
 interface GraphQLResponse {
   repository: {
     defaultBranchRef: {
       target: {
-        history: {
-          totalCount: number
-          nodes: GraphQLCommitNode[]
-        }
+        history: CommitHistoryPage
       }
     } | null
   }
@@ -240,68 +252,103 @@ export async function getLanguages(
  * 
  * For unauthenticated users, uses the Cloudflare proxy for better rate limits
  */
+// Fetch a single page of commit history (≤100 nodes). Returns the parsed
+// `history` object, or null when the repo/branch has no commit history.
+async function fetchCommitsPageGraphQL(
+  accessToken: string | undefined,
+  owner: string,
+  repo: string,
+  first: number,
+  after: string | null
+): Promise<CommitHistoryPage | null> {
+  const variables = { owner, repo, first, after }
+  let json: { data?: GraphQLResponse; errors?: Array<{ message: string }> }
+
+  // Use proxy for unauthenticated requests if available
+  if (!accessToken && GITHUB_PROXY_URL) {
+    json = await fetchGraphQLViaProxy(COMMITS_QUERY, variables) as typeof json
+  } else {
+    // Direct GitHub API call (for authenticated users or when no proxy)
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`
+    }
+
+    const response = await fetch('https://api.github.com/graphql', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ query: COMMITS_QUERY, variables }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`GraphQL request failed: ${response.status}`)
+    }
+
+    json = await response.json()
+  }
+
+  if (json.errors) {
+    console.error('GraphQL errors:', json.errors)
+    throw new Error(json.errors[0]?.message || 'GraphQL error')
+  }
+
+  return json.data?.repository?.defaultBranchRef?.target?.history ?? null
+}
+
+/**
+ * Fetch up to `maxCommits` commits with per-commit additions/deletions.
+ *
+ * GitHub's GraphQL `history(first:)` is hard-capped at 100, so depth beyond
+ * 100 is obtained by paging with the `after` cursor rather than by requesting
+ * a larger page (which GitHub rejects). Each page is clamped to ≤100, and the
+ * loop stops when `maxCommits` is reached or the history is exhausted.
+ *
+ * For unauthenticated users, uses the Cloudflare proxy for better rate limits.
+ */
 export async function getCommitsGraphQL(
   accessToken: string | undefined,
   owner: string,
   repo: string,
-  count: number = 100 // GraphQL max is 100 per request
+  maxCommits: number = 100
 ): Promise<CommitsResult> {
   try {
-    let json: { data?: GraphQLResponse; errors?: Array<{ message: string }> }
-    
-    // Use proxy for unauthenticated requests if available
-    if (!accessToken && GITHUB_PROXY_URL) {
-      json = await fetchGraphQLViaProxy(COMMITS_QUERY, { owner, repo, first: count }) as typeof json
-    } else {
-      // Direct GitHub API call (for authenticated users or when no proxy)
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      }
-      
-      if (accessToken) {
-        headers['Authorization'] = `Bearer ${accessToken}`
+    const commits: CommitStats[] = []
+    let totalCount = 0
+    let cursor: string | null = null
+
+    while (commits.length < maxCommits) {
+      const first = Math.min(100, maxCommits - commits.length)
+      const history = await fetchCommitsPageGraphQL(accessToken, owner, repo, first, cursor)
+
+      const nodes = history?.nodes
+      if (!history || !nodes || !Array.isArray(nodes)) {
+        break
       }
 
-      const response = await fetch('https://api.github.com/graphql', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          query: COMMITS_QUERY,
-          variables: { owner, repo, first: count },
-        }),
-      })
+      totalCount = history.totalCount || totalCount
 
-      if (!response.ok) {
-        throw new Error(`GraphQL request failed: ${response.status}`)
+      for (const node of nodes) {
+        commits.push({
+          sha: node.oid,
+          message: node.message.split('\n')[0],
+          author: node.author?.name || 'Unknown',
+          authorAvatar: node.author?.avatarUrl || '',
+          date: node.committedDate,
+          additions: node.additions || 0,
+          deletions: node.deletions || 0,
+          files: node.changedFilesIfAvailable || 0,
+        })
       }
 
-      json = await response.json()
+      // Stop when the history is exhausted or GitHub gives us no further cursor.
+      if (!history.pageInfo?.hasNextPage || !history.pageInfo.endCursor) {
+        break
+      }
+      cursor = history.pageInfo.endCursor
     }
-    
-    if (json.errors) {
-      console.error('GraphQL errors:', json.errors)
-      throw new Error(json.errors[0]?.message || 'GraphQL error')
-    }
-
-    const data = json.data as GraphQLResponse
-    const history = data?.repository?.defaultBranchRef?.target?.history
-    const nodes = history?.nodes
-    const totalCount = history?.totalCount || 0
-
-    if (!nodes || !Array.isArray(nodes)) {
-      return { commits: [], totalCount: 0 }
-    }
-
-    const commits = nodes.map((node) => ({
-      sha: node.oid,
-      message: node.message.split('\n')[0],
-      author: node.author?.name || 'Unknown',
-      authorAvatar: node.author?.avatarUrl || '',
-      date: node.committedDate,
-      additions: node.additions || 0,
-      deletions: node.deletions || 0,
-      files: node.changedFilesIfAvailable || 0,
-    }))
 
     return { commits, totalCount }
   } catch (error) {
@@ -565,6 +612,11 @@ interface CodeFrequencyResult {
   isCalculated: boolean
 }
 
+// Upper bound on commits paged from GraphQL to build a code-frequency estimate
+// when GitHub won't serve /stats/code_frequency (large repos, HTTP 422).
+// ~25 pages of 100 — deep enough to cover most repos without unbounded cost.
+const MAX_FALLBACK_COMMITS = 2500
+
 export async function getCodeFrequency(
   octokit: Octokit,
   owner: string,
@@ -742,7 +794,23 @@ export async function analyzeRepo(
     const { commits, totalCount: totalCommits } = commitsResult
 
     // Get code frequency with fallback to calculated data for large repos
-    const codeFrequencyResult = await getCodeFrequency(octokit, owner, repo, commits, useProxy)
+    let codeFrequencyResult = await getCodeFrequency(octokit, owner, repo, commits, useProxy)
+
+    // When GitHub can't serve full code_frequency (large repos → HTTP 422),
+    // getCodeFrequency returns a commit-derived estimate capped at the 100-commit
+    // display fetch, which truncates the chart to the most recent ~100 commits.
+    // Deepen that estimate by paging history (cursor-based, no commit-depth cap).
+    // REST stays primary; this only runs on the genuine fallback path, and never
+    // clobbers the "still computing" (202/empty) path that the chart polls for.
+    if (codeFrequencyResult.isCalculated && (accessToken || GITHUB_PROXY_URL)) {
+      const deep = await getCommitsGraphQL(accessToken, owner, repo, MAX_FALLBACK_COMMITS)
+      if (deep.commits.length > commits.length) {
+        codeFrequencyResult = {
+          data: calculateCodeFrequencyFromCommits(deep.commits),
+          isCalculated: true,
+        }
+      }
+    }
 
     // Calculate language percentages
     const totalBytes = Object.values(languages).reduce((sum, bytes) => sum + bytes, 0)
