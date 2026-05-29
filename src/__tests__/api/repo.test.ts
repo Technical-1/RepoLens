@@ -60,6 +60,7 @@ describe('POST /api/repo', () => {
       languages: {},
       totalLines: 100,
       totalLinesIsEstimated: false,
+      totalLinesCommitsCovered: 0,
       languagePercentages: [],
       commits: [],
       totalCommits: 0,
@@ -102,6 +103,7 @@ describe('POST /api/repo', () => {
     const { repoCache } = await import('@/lib/cache')
     vi.mocked(analyzeRepo).mockResolvedValue({
       repo: {} as never, languages: {}, totalLines: 1, totalLinesIsEstimated: false,
+      totalLinesCommitsCovered: 0,
       languagePercentages: [], commits: [], totalCommits: 0, codeFrequency: [],
       codeFrequencyIsCalculated: false, contributors: [], totalAdditions: 0,
       totalDeletions: 0, isPrivate: false, requiresAuth: false,
