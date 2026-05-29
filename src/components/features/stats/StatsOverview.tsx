@@ -24,7 +24,7 @@ interface StatsOverviewProps {
 export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
   const stats = useMemo(() => {
     const lineSubtext = data.totalLinesIsEstimated
-      ? `Est. from ${data.commits.length} commits`
+      ? `Est. from ${formatNumber(data.totalLinesCommitsCovered, true)} commits`
       : 'All time'
     return [
       {
@@ -76,7 +76,7 @@ export default function StatsOverview({ data, onEmbed }: StatsOverviewProps) {
         bgColor: 'bg-cyan-500/10',
       },
     ]
-  }, [data.totalLines, data.totalAdditions, data.totalDeletions, data.totalCommits, data.repo.stars, data.repo.forks, data.commits.length, data.totalLinesIsEstimated])
+  }, [data.totalLines, data.totalAdditions, data.totalDeletions, data.totalCommits, data.repo.stars, data.repo.forks, data.totalLinesCommitsCovered, data.totalLinesIsEstimated])
 
   return (
     <div className="space-y-6 fade-in">

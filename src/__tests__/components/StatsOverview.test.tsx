@@ -71,9 +71,14 @@ describe('StatsOverview', () => {
     expect(screen.getAllByText('All time').length).toBeGreaterThan(0)
   })
 
-  it('labels line stats as estimated when totalLinesIsEstimated is true', () => {
-    const estimated = { ...mockRepoAnalysis, totalLinesIsEstimated: true }
+  it('labels line stats with the covered-commit count when estimated', () => {
+    const estimated = {
+      ...mockRepoAnalysis,
+      totalLinesIsEstimated: true,
+      totalLinesCommitsCovered: 2500,
+    }
     render(<StatsOverview data={estimated} />)
-    expect(screen.getAllByText(/Est\. from \d+ commits/).length).toBeGreaterThan(0)
+    // 2500 -> "2.5K" via formatNumber's compact form
+    expect(screen.getAllByText('Est. from 2.5K commits').length).toBeGreaterThan(0)
   })
 })
