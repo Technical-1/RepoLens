@@ -15,8 +15,10 @@ const IMAGE_WIDTH = 760
 const IMAGE_HEIGHT_FULL = 260
 const IMAGE_HEIGHT_COMPACT = 160
 
-// Proxy URL for authenticated GitHub API calls
-const GITHUB_PROXY_URL = process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
+// Read the proxy URL at call time so tests can stub the env per-case.
+function getProxyUrl(): string {
+  return process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
+}
 
 interface RepoData {
   full_name: string
@@ -27,10 +29,11 @@ interface RepoData {
 }
 
 async function fetchFromProxy<T>(path: string): Promise<T> {
-  if (!GITHUB_PROXY_URL) {
+  const base = getProxyUrl()
+  if (!base) {
     throw new Error('Proxy not configured')
   }
-  const response = await fetch(`${GITHUB_PROXY_URL}/github${path}`, {
+  const response = await fetch(`${base}/github${path}`, {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
       'X-RepoLens-Server': 'repolens-server-request',

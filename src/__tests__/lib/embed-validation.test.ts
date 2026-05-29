@@ -19,6 +19,7 @@ describe('validateEmbedParams', () => {
     expect(validateEmbedParams('..', 'react').ok).toBe(false)
     expect(validateEmbedParams('facebook', '..').ok).toBe(false)
     expect(validateEmbedParams('.', 'react').ok).toBe(false)
+    expect(validateEmbedParams('facebook', '.').ok).toBe(false)
     expect(validateEmbedParams('foo..bar', 'react').ok).toBe(false)
   })
 
