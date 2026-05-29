@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   backgroundColor: themeColors.cardBg,
+                  border: `1px solid ${themeColors.border}`,
                   borderRadius: 12,
                   padding: '20px 12px',
                   flexGrow: 1,

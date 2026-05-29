@@ -173,6 +173,7 @@ export async function GET(request: NextRequest) {
                   flexDirection: 'row',
                   alignItems: 'center',
                   backgroundColor: themeColors.cardBg,
+                  border: `1px solid ${themeColors.border}`,
                   borderRadius: 8,
                   padding: '10px 16px',
                 }}
