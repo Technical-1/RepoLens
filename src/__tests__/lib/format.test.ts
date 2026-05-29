@@ -33,20 +33,21 @@ describe('formatNumber', () => {
 })
 
 describe('formatBytes', () => {
-  it('formats bytes', () => {
+  it('formats bytes below 1 KiB', () => {
     expect(formatBytes(0)).toBe('0 B')
     expect(formatBytes(500)).toBe('500 B')
-    expect(formatBytes(999)).toBe('999 B')
+    expect(formatBytes(1000)).toBe('1000 B') // < 1024, stays in bytes
+    expect(formatBytes(1023)).toBe('1023 B')
   })
 
-  it('formats kilobytes', () => {
-    expect(formatBytes(1000)).toBe('1.0 KB')
+  it('formats kilobytes using 1024', () => {
+    expect(formatBytes(1024)).toBe('1.0 KB')
     expect(formatBytes(1536)).toBe('1.5 KB')
   })
 
-  it('formats megabytes', () => {
-    expect(formatBytes(1000000)).toBe('1.0 MB')
-    expect(formatBytes(5500000)).toBe('5.5 MB')
+  it('formats megabytes using 1024', () => {
+    expect(formatBytes(1024 * 1024)).toBe('1.0 MB')
+    expect(formatBytes(5.5 * 1024 * 1024)).toBe('5.5 MB')
   })
 })
 

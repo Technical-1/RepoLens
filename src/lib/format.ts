@@ -15,11 +15,13 @@ export function formatNumber(num: number, useLocale = false): string {
 }
 
 /**
- * Format bytes to human-readable format (B, KB, MB)
+ * Format bytes to human-readable format (B, KB, MB) using 1024-based units.
  */
 export function formatBytes(bytes: number): string {
-  if (bytes >= 1000000) return (bytes / 1000000).toFixed(1) + ' MB'
-  if (bytes >= 1000) return (bytes / 1000).toFixed(1) + ' KB'
+  const KB = 1024
+  const MB = KB * 1024
+  if (bytes >= MB) return (bytes / MB).toFixed(1) + ' MB'
+  if (bytes >= KB) return (bytes / KB).toFixed(1) + ' KB'
   return bytes + ' B'
 }
 
