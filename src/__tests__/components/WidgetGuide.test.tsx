@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import WidgetGuide from '@/components/features/about/WidgetGuide'
 
 describe('WidgetGuide', () => {
@@ -34,5 +34,6 @@ describe('WidgetGuide', () => {
 
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText.mock.calls[0][0]).toContain('/api/embed/code-stats')
+    await waitFor(() => expect(within(first).getByText('Copied')).toBeInTheDocument())
   })
 })

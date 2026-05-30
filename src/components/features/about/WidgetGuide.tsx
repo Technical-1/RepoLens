@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Copy, Check } from 'lucide-react'
 import {
   WIDGETS,
@@ -15,12 +15,18 @@ import {
 export default function WidgetGuide() {
   const [theme, setTheme] = useState<WidgetTheme>('dark')
   const [copied, setCopied] = useState<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+  }, [])
 
   const copy = async (id: string, text: string) => {
     try {
       await navigator.clipboard?.writeText(text)
       setCopied(id)
-      setTimeout(() => setCopied((c) => (c === id ? null : c)), 1500)
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(() => setCopied((c) => (c === id ? null : c)), 1500)
     } catch {
       // Clipboard unavailable (e.g. insecure context) — fail silently.
     }
