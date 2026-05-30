@@ -24,13 +24,24 @@ describe('WidgetGuide', () => {
     })
   })
 
-  it('copies the markdown snippet to the clipboard', async () => {
+  it('hides snippet code until "Show code" is clicked, then copies markdown', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined)
     vi.stubGlobal('navigator', { clipboard: { writeText } })
 
     render(<WidgetGuide />)
     const first = screen.getByText('Code Statistics').closest('div')!
-    fireEvent.click(within(first).getByRole('button', { name: /copy markdown snippet/i }))
+
+    // Code (and its copy buttons) are hidden until the disclosure is opened.
+    expect(
+      within(first).queryByRole('button', { name: /copy markdown snippet for code statistics/i })
+    ).toBeNull()
+
+    fireEvent.click(within(first).getByRole('button', { name: /show code/i }))
+
+    const copyBtn = within(first).getByRole('button', {
+      name: /copy markdown snippet for code statistics/i,
+    })
+    fireEvent.click(copyBtn)
 
     expect(writeText).toHaveBeenCalledTimes(1)
     expect(writeText.mock.calls[0][0]).toContain('/api/embed/code-stats')

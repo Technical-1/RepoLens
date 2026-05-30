@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, ChevronDown } from 'lucide-react'
 import {
   WIDGETS,
   SAMPLE_OWNER,
@@ -14,6 +14,7 @@ import {
 
 export default function WidgetGuide() {
   const [theme, setTheme] = useState<WidgetTheme>('dark')
+  const [openCode, setOpenCode] = useState<string | null>(null)
   const [copied, setCopied] = useState<string | null>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -34,9 +35,11 @@ export default function WidgetGuide() {
 
   return (
     <section id="widgets" className="scroll-mt-32 py-12">
-      <h2 className="text-2xl font-bold text-white mb-2">Embeddable widgets</h2>
-      <p className="text-github-muted mb-6 max-w-3xl">
-        Drop a live RepoLens badge into any README. Toggle the theme, then copy a snippet.
+      <h2 className="text-2xl font-bold text-white mb-2">Embed repo badges in your README</h2>
+      <p className="text-github-muted mb-8 max-w-3xl">
+        Add live stats badges for any public GitHub repository to your README, docs, or site —
+        they refresh on their own as the repo changes. Pick a theme, preview the badges below,
+        then reveal and copy the snippet for the one you want.
       </p>
 
       <div
@@ -60,53 +63,66 @@ export default function WidgetGuide() {
         ))}
       </div>
 
-      <div className="space-y-8">
+      <div className="grid gap-6 sm:grid-cols-3">
         {WIDGETS.map((w) => {
+          const isOpen = openCode === w.key
           const snippets = [
             { id: `${w.key}-md`, label: 'Markdown', value: markdownSnippet(w, SAMPLE_OWNER, SAMPLE_REPO, theme) },
             { id: `${w.key}-html`, label: 'HTML', value: htmlSnippet(w, SAMPLE_OWNER, SAMPLE_REPO, theme) },
           ]
           return (
-            <div key={w.key} className="glass-card rounded-xl border border-github-border/50 p-6">
-              <h3 className="text-lg font-semibold text-white">{w.label}</h3>
-              <p className="text-sm text-github-muted mb-4">{w.description}</p>
-
+            <div key={w.key} className="glass-card rounded-xl border border-github-border/50 p-5 flex flex-col">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={embedSrc(w.key, SAMPLE_OWNER, SAMPLE_REPO, theme)}
                 width={400}
                 alt={w.alt}
-                className="rounded-lg mb-4 max-w-full"
+                className="w-full h-auto rounded-lg"
               />
 
-              <div className="space-y-3">
-                {snippets.map((snip) => (
-                  <div key={snip.id}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs uppercase tracking-wide text-github-muted">{snip.label}</span>
-                      <button
-                        onClick={() => copy(snip.id, snip.value)}
-                        aria-label={`Copy ${snip.label} snippet for ${w.label}`}
-                        className="flex items-center gap-1 text-xs text-github-link hover:text-white transition-colors"
-                      >
-                        {copied === snip.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                        {copied === snip.id ? 'Copied' : 'Copy'}
-                      </button>
+              <h3 className="mt-4 text-base font-semibold tracking-tight text-white">{w.label}</h3>
+              <p className="mt-1 text-sm text-github-muted flex-1">{w.description}</p>
+
+              <button
+                onClick={() => setOpenCode(isOpen ? null : w.key)}
+                aria-expanded={isOpen}
+                className="mt-4 inline-flex items-center gap-1.5 self-start text-sm text-github-link hover:text-white transition-colors"
+              >
+                <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                {isOpen ? 'Hide code' : 'Show code'}
+              </button>
+
+              {isOpen && (
+                <div className="mt-3 space-y-3">
+                  {snippets.map((snip) => (
+                    <div key={snip.id}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-xs uppercase tracking-wide text-github-muted">{snip.label}</span>
+                        <button
+                          onClick={() => copy(snip.id, snip.value)}
+                          aria-label={`Copy ${snip.label} snippet for ${w.label}`}
+                          className="flex items-center gap-1 text-xs text-github-link hover:text-white transition-colors"
+                        >
+                          {copied === snip.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                          {copied === snip.id ? 'Copied' : 'Copy'}
+                        </button>
+                      </div>
+                      <pre className="overflow-x-auto rounded-lg bg-github-darker border border-github-border p-3 text-xs text-github-text">
+                        <code>{snip.value}</code>
+                      </pre>
                     </div>
-                    <pre className="overflow-x-auto rounded-lg bg-github-darker border border-github-border p-3 text-xs text-github-text">
-                      <code>{snip.value}</code>
-                    </pre>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
       </div>
 
       <p className="text-sm text-github-muted mt-6">
-        Params: <code>owner</code>, <code>repo</code>, <code>theme</code> (<code>dark</code> | <code>light</code>),
-        and <code>hideRepoName=true</code> to hide the repo name.
+        Swap in any public repository by changing the <code>owner</code> and <code>repo</code> values
+        in the snippet. Other params: <code>theme</code> (<code>dark</code> | <code>light</code>) and{' '}
+        <code>hideRepoName=true</code>.
       </p>
     </section>
   )

@@ -29,7 +29,7 @@ describe('AboutContent', () => {
     render(<AboutContent />)
     expect(screen.getByRole('heading', { name: /what is repolens/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /how it works/i })).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: /embeddable widgets/i })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /embed repo badges/i })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: /^faq$/i })).toBeInTheDocument()
   })
 })
