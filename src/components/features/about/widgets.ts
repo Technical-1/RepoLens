@@ -39,11 +39,12 @@ export function embedSrc(
   repo: string,
   theme: WidgetTheme
 ): string {
-  return `${SITE_URL}/api/embed/${key}?owner=${owner}&repo=${repo}&theme=${theme}`
+  const params = new URLSearchParams({ owner, repo, theme })
+  return `${SITE_URL}/api/embed/${key}?${params.toString()}`
 }
 
 export function linkHref(owner: string, repo: string): string {
-  return `${SITE_URL}/?repo=${owner}/${repo}`
+  return `${SITE_URL}/?repo=${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`
 }
 
 export function markdownSnippet(
