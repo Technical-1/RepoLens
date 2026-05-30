@@ -6,7 +6,7 @@ Analyze GitHub repositories with beautiful visualizations. View language breakdo
 
 ![Next.js 15](https://img.shields.io/badge/Next.js-15.3-black)
 ![React 19](https://img.shields.io/badge/React-19-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind-3.4-38bdf8)
 ![Zod](https://img.shields.io/badge/Zod-4-3068b7)
 
@@ -154,7 +154,7 @@ You can deploy RepoLens to any hosting service that supports Next.js, including 
 | Styling | [Tailwind CSS 3.4](https://tailwindcss.com/) |
 | Charts | [Recharts](https://recharts.org/) |
 | Icons | [Lucide React](https://lucide.dev/) |
-| Language | [TypeScript 5.7](https://www.typescriptlang.org/) |
+| Language | [TypeScript 5.9](https://www.typescriptlang.org/) |
 | Image Generation | [next/og](https://nextjs.org/docs/app/api-reference/file-conventions/metadata/opengraph-image) (Satori) for embeds; static PNGs for OG/favicons |
 
 ## API Rate Limits
