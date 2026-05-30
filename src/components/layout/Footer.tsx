@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 export default function Footer() {
   return (
     <footer className="border-t border-github-border/50 py-8 relative z-10">
@@ -29,6 +31,9 @@ export default function Footer() {
             </svg>
             <span>Built by Jacob Kanfer</span>
           </a>
+          <Link href="/about" className="hover:text-github-text transition-colors">
+            About &amp; Widgets
+          </Link>
           <p>Built with Next.js 15, React 19, and the GitHub API</p>
         </div>
       </div>
