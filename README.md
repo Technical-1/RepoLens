@@ -18,6 +18,7 @@ Analyze GitHub repositories with beautiful visualizations. View language breakdo
 - **Code Frequency Chart**: Interactive visualization of code changes over time
 - **Contributors List**: Top contributors with their contribution stats
 - **Embeddable Widgets**: Generate SVG images for your README to showcase repo stats
+- **Info Hub**: A public `/about` page explaining how stats are computed, an interactive widget guide with live previews and copy-paste snippets, and an FAQ
 - **User Dashboard**: Authenticated users get a personal dashboard with their repositories and quick-analyze
 - **Dynamic Repo Pages**: Dedicated `/repo/[owner]/[name]` pages for deep-linking to any analysis
 - **GitHub OAuth**: Sign in to access private repositories and higher API limits
@@ -28,7 +29,7 @@ Analyze GitHub repositories with beautiful visualizations. View language breakdo
 
 ## Embeddable Widgets
 
-RepoLens generates beautiful SVG widgets you can embed directly in your GitHub README. Available widgets:
+RepoLens generates beautiful SVG widgets you can embed directly in your GitHub README. The `/about` page has an interactive guide with live previews, a dark/light theme toggle, and copy-paste Markdown/HTML snippets for any public repository. Available widgets:
 
 ### Code Statistics
 Shows total lines, lines added, lines removed, and commit count.
@@ -180,7 +181,8 @@ repolens/
 ├── src/
 │   ├── app/
 │   │   ├── (public)/
-│   │   │   └── page.tsx                     # Public repo search page
+│   │   │   ├── page.tsx                     # Public repo search page
+│   │   │   └── about/page.tsx               # Info hub: how-it-works, widget guide, FAQ
 │   │   ├── dashboard/
 │   │   │   ├── layout.tsx                   # Auth-protected layout
 │   │   │   └── page.tsx                     # User dashboard with repos
@@ -212,6 +214,13 @@ repolens/
 │   │   │   ├── RepoInput.tsx
 │   │   │   └── PrivacyNotice.tsx
 │   │   ├── features/
+│   │   │   ├── about/
+│   │   │   │   ├── AboutContent.tsx         # Assembles the /about page
+│   │   │   │   ├── AboutIntro.tsx
+│   │   │   │   ├── HowItWorks.tsx           # Methodology + engineering notes
+│   │   │   │   ├── WidgetGuide.tsx          # Interactive embed-widget guide
+│   │   │   │   ├── FaqAccordion.tsx
+│   │   │   │   └── widgets.ts               # Widget metadata + snippet builders
 │   │   │   ├── stats/
 │   │   │   │   ├── StatsOverview.tsx
 │   │   │   │   ├── LanguageBreakdown.tsx
