@@ -25,18 +25,14 @@ export default function Header() {
             </div>
           </Link>
 
-          {/* Primary nav */}
-          <nav className="hidden sm:flex items-center gap-6">
+          {/* Auth */}
+          <div className="flex items-center gap-4">
             <Link
               href="/about"
-              className="text-sm text-github-muted hover:text-github-text transition-colors"
+              className="hidden sm:block text-sm text-github-muted hover:text-github-text transition-colors"
             >
               About
             </Link>
-          </nav>
-
-          {/* Auth */}
-          <div className="flex items-center gap-4">
             {status === 'loading' ? (
               <div className="flex items-center gap-2 text-github-muted">
                 <Loader2 className="w-4 h-4 animate-spin" />
