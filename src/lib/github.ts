@@ -31,14 +31,11 @@ interface GitHubRepoResponse {
 }
 
 import { clientEnv } from "@/lib/env"
+import { proxyAuthHeaders } from "@/lib/proxy-auth"
 
 // Cloudflare Worker proxy for authenticated GitHub API calls
 // This provides 5,000/hr rate limits for unauthenticated users
 const GITHUB_PROXY_URL = clientEnv.NEXT_PUBLIC_GITHUB_PROXY_URL
-
-// Server-side header for proxy authentication (matches worker config)
-const SERVER_SECRET_HEADER = 'X-RepoLens-Server'
-const SERVER_SECRET_VALUE = 'repolens-server-request'
 
 /**
  * Helper to make proxied GraphQL requests (for unauthenticated users)
@@ -52,7 +49,7 @@ async function fetchGraphQLViaProxy(query: string, variables: Record<string, unk
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      [SERVER_SECRET_HEADER]: SERVER_SECRET_VALUE,
+      ...proxyAuthHeaders(),
     },
     body: JSON.stringify({ query, variables }),
   })
@@ -76,7 +73,7 @@ async function fetchRESTViaProxy<T = unknown>(path: string): Promise<{ data: T; 
   const response = await fetch(`${GITHUB_PROXY_URL}/github${path}`, {
     headers: {
       'Accept': 'application/json',
-      [SERVER_SECRET_HEADER]: SERVER_SECRET_VALUE,
+      ...proxyAuthHeaders(),
     },
   })
   

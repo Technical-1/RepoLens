@@ -1,3 +1,5 @@
+import { proxyAuthHeaders } from '@/lib/proxy-auth'
+
 // Reads the proxy URL at call time so tests can stub the env per-case.
 function getProxyUrl(): string {
   return process.env.NEXT_PUBLIC_GITHUB_PROXY_URL || ''
@@ -9,7 +11,7 @@ async function proxyFetch<T>(path: string): Promise<T> {
   const res = await fetch(`${base}/github${path}`, {
     headers: {
       Accept: 'application/vnd.github.v3+json',
-      'X-RepoLens-Server': 'repolens-server-request',
+      ...proxyAuthHeaders(),
     },
   })
   if (!res.ok) throw new Error(`GitHub API error: ${res.status}`)
@@ -48,7 +50,7 @@ async function fetchCommitTotalsGraphQL(owner: string, repo: string): Promise<Co
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-RepoLens-Server': 'repolens-server-request',
+      ...proxyAuthHeaders(),
     },
     body: JSON.stringify({ query: COMMIT_TOTALS_QUERY, variables: { owner, repo, first: 100 } }),
   })

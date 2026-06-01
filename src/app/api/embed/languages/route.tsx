@@ -7,6 +7,7 @@ import {
   getErrorDetails,
 } from '@/lib/embed-utils'
 import { validateEmbedParams } from '@/lib/embed-validation'
+import { proxyAuthHeaders } from '@/lib/proxy-auth'
 
 export const runtime = 'edge'
 
@@ -27,7 +28,7 @@ async function fetchFromProxy<T>(path: string): Promise<T> {
   const response = await fetch(`${base}/github${path}`, {
     headers: {
       'Accept': 'application/vnd.github.v3+json',
-      'X-RepoLens-Server': 'repolens-server-request',
+      ...proxyAuthHeaders(),
     },
   })
   if (!response.ok) {
