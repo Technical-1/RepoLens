@@ -111,6 +111,11 @@ Create a `.env.local` file in the root directory:
 AUTH_GITHUB_ID=your_github_client_id
 AUTH_GITHUB_SECRET=your_github_client_secret
 AUTH_SECRET=your_random_secret_here
+
+# Optional — route unauthenticated requests through the GitHub proxy for a
+# 5,000/hr shared limit instead of GitHub's 60/hr anonymous cap.
+# NEXT_PUBLIC_GITHUB_PROXY_URL=https://your-worker.workers.dev
+# GITHUB_PROXY_SECRET=shared_secret_matching_the_worker   # server-only, never NEXT_PUBLIC
 ```
 
 Generate `AUTH_SECRET` with:
@@ -162,11 +167,12 @@ You can deploy RepoLens to any hosting service that supports Next.js, including 
 
 | Authentication | Rate Limit | Caching |
 |----------------|------------|---------|
-| Unauthenticated | 60 requests/hour | 10-minute server cache |
+| Unauthenticated (via proxy) | 5,000 requests/hour (shared, per-IP throttled) | 10-minute server cache |
+| Unauthenticated (no proxy) | 60 requests/hour | 10-minute server cache |
 | Authenticated (OAuth) | 5,000 requests/hour | No server cache |
-| Embed Widgets | Uses unauthenticated | 1-hour CDN cache |
+| Embed Widgets | Served via the proxy | 1-hour CDN cache |
 
-Sign in with GitHub to get higher rate limits for analyzing large repositories.
+When `NEXT_PUBLIC_GITHUB_PROXY_URL` is configured, unauthenticated and embed requests are routed through a [Cloudflare Worker GitHub proxy](https://github.com/Technical-1/Git-Cloudflare-Proxy) that holds a read-only token, so anonymous visitors share the authenticated 5,000/hr limit (per-IP throttled) instead of GitHub's 60/hr. Server-side calls authenticate to the proxy with the server-only `GITHUB_PROXY_SECRET`. Sign in with GitHub for your own dedicated 5,000/hr limit and access to private repos.
 
 **Caching Strategy:**
 - Unauthenticated requests are cached server-side for 10 minutes to reduce API pressure
@@ -255,7 +261,7 @@ repolens/
 ## Limitations
 
 - **Large repos**: GitHub's statistics API can struggle with repos over 10,000 commits (GraphQL fallback handles most cases)
-- **Rate limiting**: Heavy use may hit GitHub API limits (sign in for higher limits)
+- **Rate limiting**: Unauthenticated traffic shares the proxy's pooled 5,000/hr budget and is throttled per IP; sign in for a dedicated limit
 - **Stats computation**: Some statistics may take time to compute for new/updated repos
 - **Embed widgets**: Only works for public repositories
 
